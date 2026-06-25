@@ -1,0 +1,5 @@
+1. Accuracy / adequacy: Faithfully conveys the full meaning of the source. No mistranslation, no hallucinated/added content, no omissions.
+2. Fluency / naturalness: Reads naturally and grammatically in the target language, as if written by an educated native speaker.
+3. Terminology & named entities: Correct, consistent, domain-appropriate terms; names, numbers and codes rendered correctly.
+4. Style & register: Matches the tone, formality and style of the source (e.g. casual vs formal, marketing vs technical).
+5. Locale & formatting: Correct script, punctuation, and number/date conventions for the target locale.
