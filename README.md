@@ -8,6 +8,8 @@ This repo uses **WMT25 human evaluation data** as the gold standard to measure h
 
 ## 0. Goal
 
+> **Getting the data:** download the WMT25 evaluation set from <https://github.com/wmt-conference/wmt25-general-mt> and put `wmt25-genmt-humeval.jsonl` at the repo root. The file is git-ignored (it exceeds GitHub's 100 MB limit), so it is not in this repo — `dev/extract_dev.py` reads it to build the dev set.
+
 **Core goal: tune the llm-as-a-judge so its verdicts match human ratings as closely as possible.**
 
 We treat the judge as a tunable system with two main knobs:
