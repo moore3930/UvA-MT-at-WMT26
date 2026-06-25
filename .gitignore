@@ -4,6 +4,8 @@ notes.md
 *_plan.md
 task*.md
 uv.lock
+outputs/
+notebooks/
 
 # large data file: exceeds GitHub's 100 MB limit, keep local-only
 wmt25-genmt-humeval.jsonl
