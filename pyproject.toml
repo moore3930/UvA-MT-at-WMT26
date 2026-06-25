@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uva-mt-at-wmt26"
+version = "0.1.0"
+description = "LLM-based MT generation, pairwise judging, and coherency evaluation workflows for WMT-style experiments."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "openai>=1.0.0,<2",
+]
+
+[project.scripts]
+sequential-scaling = "sequential_scaling:main"
+pairwise-matrix = "pairwise_matrix:main"
+coherency-eval = "coherency_eval:main"
+contrastive-judge = "util.contrastive_judge:main"
+
+[tool.setuptools]
+py-modules = ["sequential_scaling", "pairwise_matrix", "coherency_eval"]
+
+[tool.setuptools.packages.find]
+include = ["util*"]
