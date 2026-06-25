@@ -6,6 +6,28 @@ This repo uses **WMT25 human evaluation data** as the gold standard to measure h
 
 ---
 
+## Installation
+
+This project includes a `pyproject.toml` for [`uv`](https://docs.astral.sh/uv/). It requires **Python >= 3.10**.
+
+```bash
+# 1) Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2) Enter the project
+cd /path/to/UvA-MT-at-WMT26
+
+# 3) Install a compatible Python (recommended)
+uv python install 3.11
+
+# 4) Create/update .venv, resolve dependencies, and install the project
+uv sync
+```
+
+> If you prefer a lower-level pip-style install, `uv pip install -r pyproject.toml` also works, but `uv sync` is the recommended project workflow.
+
+---
+
 ## 0. Goal
 
 > **Getting the data:** download the WMT25 evaluation set from <https://github.com/wmt-conference/wmt25-general-mt> and put `wmt25-genmt-humeval.jsonl` at the repo root. The file is git-ignored (it exceeds GitHub's 100 MB limit), so it is not in this repo — `dev/extract_dev.py` reads it to build the dev set.

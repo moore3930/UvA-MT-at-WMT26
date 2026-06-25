@@ -260,6 +260,67 @@ def ranking_and_best(dev, llm):
     }
 
 
+def position_bias_stats(llm):
+    """Aggregate order-disagreement stats from LLM matrix records."""
+    total_pairs = 0
+    total_disagreements = 0
+    total_ordered = 0
+    pos_a_wins = 0
+    pos_b_wins = 0
+    ties = 0
+    docs = 0
+
+    for rec in llm.values():
+        lm = rec["winloss"]
+        k = len(lm)
+        total_pairs += k * (k - 1) // 2
+        total_ordered += k * (k - 1)
+        docs += 1
+
+        for i in range(k):
+            for j in range(k):
+                if i == j:
+                    continue
+                if lm[i][j] == 1:
+                    pos_a_wins += 1
+                elif lm[i][j] == -1:
+                    pos_b_wins += 1
+                else:
+                    ties += 1
+
+        if "position_disagreements" in rec:
+            total_disagreements += rec["position_disagreements"]
+        else:
+            total_disagreements += sum(
+                1 for i in range(k) for j in range(i + 1, k)
+                if lm[i][j] != -lm[j][i]
+            )
+
+    return {
+        "position_disagreements": total_disagreements,
+        "position_pairs": total_pairs,
+        "position_disagreement_rate": (
+            total_disagreements / total_pairs if total_pairs else None
+        ),
+        "position_disagreements_mean": (
+            total_disagreements / docs if docs else None
+        ),
+        "ordered_pairs": total_ordered,
+        "position_a_wins": pos_a_wins,
+        "position_b_wins": pos_b_wins,
+        "position_ties": ties,
+        "position_a_win_rate": (
+            pos_a_wins / total_ordered if total_ordered else None
+        ),
+        "position_b_win_rate": (
+            pos_b_wins / total_ordered if total_ordered else None
+        ),
+        "position_tie_rate": (
+            ties / total_ordered if total_ordered else None
+        ),
+    }
+
+
 # ----------------------------- report -----------------------------
 
 def pct(x):
@@ -296,6 +357,7 @@ def report_pair(pair, dev, llm, thresholds):
     k0 = thresholds[0]
     m = pair_metrics(dev, llm, k0, k0)
     rb = ranking_and_best(dev, llm)
+    pb = position_bias_stats(llm)
 
     print(f"\n-- pairwise (human threshold = {k0}) --")
     print(f"  agreement (3-way)        : {pct(m['agreement'])}")
@@ -316,6 +378,14 @@ def report_pair(pair, dev, llm, thresholds):
     print(f"  Spearman rho  : {fnum(rb['spearman_mean'])}")
     if rb["n_skip_corr"]:
         print(f"  (skipped {rb['n_skip_corr']} docs with missing scores)")
+
+    print("\n-- position bias --")
+    print(f"  order disagreements : {pct(pb['position_disagreement_rate'])}  "
+          f"({pb['position_disagreements']}/{pb['position_pairs']})")
+    print(f"  position A win rate : {pct(pb['position_a_win_rate'])}  "
+          f"({pb['position_a_wins']}/{pb['ordered_pairs']})")
+    print(f"  position B win rate : {pct(pb['position_b_win_rate'])}  "
+          f"({pb['position_b_wins']}/{pb['ordered_pairs']})")
 
     print("\n-- best hypo agreement --")
     print(f"  Best@1 : {pct(rb['best1'])}   Best@2 : {pct(rb['best2'])}  "
@@ -359,6 +429,12 @@ def report_pair(pair, dev, llm, thresholds):
         "spearman_mean": rb["spearman_mean"],
         "best1": rb["best1"],
         "best2": rb["best2"],
+        "position_disagreement_rate": pb["position_disagreement_rate"],
+        "position_disagreements": pb["position_disagreements"],
+        "position_pairs": pb["position_pairs"],
+        "position_a_win_rate": pb["position_a_win_rate"],
+        "position_b_win_rate": pb["position_b_win_rate"],
+        "position_tie_rate": pb["position_tie_rate"],
         # per-threshold sweep
         "sweep": sweep,
     }
@@ -370,7 +446,8 @@ def report_pair(pair, dev, llm, thresholds):
 _FLAT_COLS = [
     "pair", "n_docs", "threshold", "agreement_3way", "human_tie_rate",
     "llm_tie_rate", "dir_strict", "dir_both", "kendall_mean", "spearman_mean",
-    "best1", "best2",
+    "best1", "best2", "position_disagreement_rate", "position_a_win_rate",
+    "position_b_win_rate", "position_tie_rate",
 ]
 
 
@@ -393,6 +470,10 @@ def flatten(records):
                 "spearman_mean": r["spearman_mean"],
                 "best1": r["best1"],
                 "best2": r["best2"],
+                "position_disagreement_rate": r["position_disagreement_rate"],
+                "position_a_win_rate": r["position_a_win_rate"],
+                "position_b_win_rate": r["position_b_win_rate"],
+                "position_tie_rate": r["position_tie_rate"],
             })
     return rows
 

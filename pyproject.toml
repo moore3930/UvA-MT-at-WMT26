@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uva-mt-at-wmt26"
+version = "0.1.0"
+description = "LLM-based MT generation, pairwise judging, and coherency evaluation workflows for WMT-style experiments."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "openai>=1.0.0,<2",
+]
+
+[tool.setuptools.packages.find]
+include = ["util*"]
