@@ -415,7 +415,7 @@ def parse_args():
     p.add_argument("--dir", default=DEFAULT_DIR,
                    help="dir holding the SHARED dev/human jsonl (experiment-independent); "
                         "defaults to the dev/ next to this script")
-    p.add_argument("--model", default="metricx24",
+    p.add_argument("--model", default="metricx-24",
                    help="qe model name; forms a <dir>/<model>/ level above the experiment")
     p.add_argument("--exp", default="",
                    help="experiment name; metricx matrices are read from <dir>/<model>/<exp>/ "

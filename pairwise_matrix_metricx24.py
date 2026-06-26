@@ -24,9 +24,12 @@ def parse_args():
                         "(use to separate different judge prompts under a model)")
     p.add_argument("--metricx_param", default={"model_name_or_path":"google/metricx-24-hybrid-xl-v2p6","tokenizer":"google/mt5-xl"}, help="MetricX params to use")
     p.add_argument("--model",default="metricx-24")
+    p.add_argument("--scores-cache",help="json file to cache pointwise scores (default: no caching)")
     p.add_argument("--src-lang", default="English")
     p.add_argument("--tgt-lang", default="",
                    help="target language name (default: inferred from tgt_lang field)")
+    p.add_argument("--thrs", default=0.1, type=float,
+                   help="score difference threshold for win/loss/tie (default 0.1)")
     p.add_argument("--no-log", action="store_true",
                    help="do not tee console output to <out_dir>/log/<stem>.log")
     return p.parse_args()
@@ -106,6 +109,7 @@ def metricx_init(model_name_or_path, tokenizer):
     return model, tokenizer, device
 
 def metricx_predict(examples, model, tokenizer, device):
+   
     max_input_length = 1536
     batch_size = 1
     ds = get_dataset(
@@ -133,6 +137,7 @@ def metricx_predict(examples, model, tokenizer, device):
         del example["input_ids"]
         del example["attention_mask"]
         results.append(example)
+    
     return results
 
 def extract_hypos(rec: dict):
@@ -175,6 +180,7 @@ def main():
     docs = {}        # doc_id -> {"hypos","tgt","source","K","mat"}
 
     n_doc = n_skip_identical = 0
+    cached_scores = {}
     with in_path.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -193,27 +199,39 @@ def main():
             K = len(hypos)
             to_score = [{"source": source,"hypothesis": x} for x in hypos]
             with open("temp_toscore.jsonl","w") as tmpjs:
-                json.dump(to_score,tmpjs) 
-            pointwise_scores = metricx_predict("temp_toscore.jsonl",model, tokenizer, device)
+                json.dump(to_score,tmpjs)
+            if args.scores_cache and os.path.exists(args.scores_cache):
+                with open(args.scores_cache,"r") as f:
+                    cached_scores = json.load(f)
+                if doc_id in cached_scores:
+                    pointwise_scores = cached_scores[doc_id]
+                else:
+                    pointwise_scores = metricx_predict("temp_toscore.jsonl",model, tokenizer, device)
+                    cached_scores[doc_id] = pointwise_scores
+                    with open(args.scores_cache,"w") as f:
+                        json.dump(cached_scores,f)
+            else:
+                pointwise_scores = metricx_predict("temp_toscore.jsonl",model, tokenizer, device)
+                cached_scores[doc_id] = pointwise_scores
+                with open(args.scores_cache,"w") as f:
+                    json.dump(cached_scores,f)
             
             def _validate_order_and_extract(pointwise_scores,hypos):
                 scores = []
-                for ps,h in zip(pointwise_scores,hypos):
-                    if ps["hypothesis"] != h:
-                        print("incorrect score order")
-                        return False, []
-                    else:
-                        scores.append(ps["prediction"])
-                return True, scores
+                for h in hypos:
+                    for ps in pointwise_scores:
+                        if ps["hypothesis"] == h:
+                            scores.append(ps["prediction"])
+                            break
+                assert len(scores) == len(hypos), f"Mismatch in scores and hypos for doc_id {doc_id}, hypos: {hypos}, scores: {scores}"      
+                return scores
             
          
-            order_ok, scores = _validate_order_and_extract(pointwise_scores,hypos)
+            scores = _validate_order_and_extract(pointwise_scores,hypos)
             
             mat = [[0] * K for _ in range(K)]   # diagonal + identical -> 0
             docs[doc_id] = {"hypos": hypos, "tgt": tgt, "source": source,
                             "K": K, "mat": mat}
-            if order_ok:
-                docs[doc_id]["scores"] = scores
             
             for i in range(K):
                 for j in range(K):
@@ -223,7 +241,8 @@ def main():
                         mat[i][j]=0
                         n_skip_identical += 1          
                     else:
-                        mat[i][j]= 1 if scores[i]<scores[j] else -1
+                        score_diff = scores[i]-scores[j]
+                        mat[i][j]= 1 if score_diff > args.thrs else -1 if score_diff < -args.thrs else 0
             n_doc += 1
     print(f"processed {n_doc} docs")
 
