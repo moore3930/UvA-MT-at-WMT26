@@ -142,11 +142,13 @@ def _judge_once(client, model, source, cand_a, cand_b, src_lang, tgt_lang,
     key = LLMCache.make_key(
         model, temperature,
         "JUDGE\x00" + json.dumps(messages, ensure_ascii=False, sort_keys=True))
-    raw = cache.get(key) if cache else None
-    if raw is None:
+    if cache:
+        raw = cache.get_or_compute(
+            key,
+            lambda: call_openai(client, model, messages, temperature=temperature),
+        )
+    else:
         raw = call_openai(client, model, messages, temperature=temperature)
-        if cache:
-            cache.put(key, raw)
     v = parse_verdict(raw)
     v["raw"] = raw
     return v
