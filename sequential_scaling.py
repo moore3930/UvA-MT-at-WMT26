@@ -251,6 +251,14 @@ def load_done_ids(path: Path) -> set:
 #   plus an in-memory dict for lookups. Identical prompts are reused, which
 #   survives reruns, changed filters, and changed output filenames.
 # --------------------------------------------------------------------------- #
+class _PendingValue:
+    """One in-flight cache fill that other threads can wait on."""
+
+    def __init__(self):
+        self.event = threading.Event()
+        self.error = None
+
+
 class LLMCache:
     def __init__(self, path: Path, enabled: bool = True):
         self.path = path
@@ -259,6 +267,7 @@ class LLMCache:
         self.hits = 0
         self.fh = None
         self.lock = threading.Lock()  # guards mem + file writes under concurrency
+        self.inflight = {}
         if not enabled:
             return
         # load existing cache
@@ -296,10 +305,64 @@ class LLMCache:
         if not self.enabled:
             return
         with self.lock:
+            if key in self.mem:
+                return
             self.mem[key] = hypothesis
             self.fh.write(json.dumps({"key": key, "hypothesis": hypothesis},
                                      ensure_ascii=False) + "\n")
             self.fh.flush()
+
+    def get_or_compute(self, key: str, compute_fn):
+        """Return a cached value or compute it once across concurrent threads."""
+        if not self.enabled:
+            return compute_fn()
+
+        while True:
+            with self.lock:
+                val = self.mem.get(key)
+                if val is not None:
+                    self.hits += 1
+                    return val
+
+                pending = self.inflight.get(key)
+                if pending is None:
+                    pending = _PendingValue()
+                    self.inflight[key] = pending
+                    owner = True
+                else:
+                    owner = False
+
+            if owner:
+                try:
+                    value = compute_fn()
+                except Exception as e:  # noqa: BLE001
+                    with self.lock:
+                        self.inflight.pop(key, None)
+                    pending.error = e
+                    pending.event.set()
+                    raise
+
+                with self.lock:
+                    if key not in self.mem:
+                        self.mem[key] = value
+                        self.fh.write(json.dumps({"key": key, "hypothesis": value},
+                                                 ensure_ascii=False) + "\n")
+                        self.fh.flush()
+                    self.inflight.pop(key, None)
+                pending.event.set()
+                return value
+
+            pending.event.wait()
+            if pending.error is not None:
+                raise pending.error
+
+            with self.lock:
+                val = self.mem.get(key)
+                if val is not None:
+                    self.hits += 1
+                    return val
+            raise RuntimeError(
+                f"Cache waiter woke up for missing key {key}; expected cached value")
 
     def close(self):
         if self.fh:
@@ -322,10 +385,10 @@ def run_rounds(client, model, src_lang, tgt_lang, source, k, context_win,
             ckey = LLMCache.make_key(
                 model, temperature,
                 json.dumps(messages, ensure_ascii=False, sort_keys=True))
-            hypo = cache.get(ckey)
-            if hypo is None:
-                hypo = call_openai(client, model, messages, temperature=temperature)
-                cache.put(ckey, hypo)
+            hypo = cache.get_or_compute(
+                ckey,
+                lambda: call_openai(client, model, messages, temperature=temperature),
+            )
         hypos.append(hypo)
     return hypos
 
