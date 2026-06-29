@@ -76,8 +76,8 @@ def load_dev(path):
     return out
 
 
-def load_metricx(path):
-    """doc_id -> the full metricx-matrix record."""
+def load_metric(path):
+    """doc_id -> the full metric-matrix record."""
     out = {}
     with open(path, encoding="utf-8") as f:
         for line in f:
@@ -421,7 +421,7 @@ def parse_args():
                    help="experiment name; metricx matrices are read from <dir>/<model>/<exp>/ "
                         "and exports default there (separates judge models/prompts)")
     p.add_argument("--dev", default="", help="explicit dev jsonl (single pair)")
-    p.add_argument("--metricx", default="", help="explicit metricx-matrix jsonl (single pair)")
+    p.add_argument("--metric", default="", help="explicit metric-matrix jsonl (single pair)")
     p.add_argument("--thresholds", default="0,5,10,25",
                    help="comma-separated human thresholds; first is the primary")
     p.add_argument("--dump", default="", help="write per-pair summary jsonl here")
@@ -446,40 +446,40 @@ def main():
     if args.exp:
         exp_dir = os.path.join(exp_dir, args.exp)
 
-    # build the (pair, dev_path, metricx_path) work list
+    # build the (pair, dev_path, metric_path) work list
     jobs = []
-    if args.dev or args.metricx:
-        if not (args.dev and args.metricx):
-            sys.exit("--dev and --metricx must be given together")
+    if args.dev or args.metric:
+        if not (args.dev and args.metric):
+            sys.exit("--dev and --metric must be given together")
         pair = os.path.splitext(os.path.basename(args.dev))[0]
-        jobs.append((pair, args.dev, args.metricx))
+        jobs.append((pair, args.dev, args.metric))
     else:
         # dev/human set is SHARED (dir root); llm matrices live in exp_dir
         for pair in [p.strip() for p in args.pairs.split(",") if p.strip()]:
             dev_p = os.path.join(args.dir, f"{pair}.jsonl")
-            metricx_p = os.path.join(exp_dir, f"{pair}-pairwise-metricx24.jsonl")
-            jobs.append((pair, dev_p, metricx_p))
+            metric_p = os.path.join(exp_dir, f"{pair}-pairwise-{args.model}.jsonl")
+            jobs.append((pair, dev_p, metric_p))
 
     records = []
-    for pair, dev_p, metricx_p in jobs:
+    for pair, dev_p, metric_p in jobs:
         if not os.path.exists(dev_p):
             print(f"[skip {pair}] missing {dev_p}")
             continue
-        if not os.path.exists(metricx_p):
-            print(f"[skip {pair}] missing {metricx_p}")
+        if not os.path.exists(metric_p):
+            print(f"[skip {pair}] missing {metric_p}")
             continue
         dev = load_dev(dev_p)
-        metricx = load_metricx(metricx_p)
-        records.append(report_pair(pair, dev, metricx, thresholds))
+        metric = load_metric(metric_p)
+        records.append(report_pair(pair, dev, metric, thresholds))
 
     # export targets: explicit paths win; otherwise auto-write all three into
     # the experiment dir (<dir>/<model>/<exp>/) with standard names.
     dump_p, csv_p, tsv_p = args.dump, args.csv, args.tsv
     if (args.model or args.exp) and not (args.dump or args.csv or args.tsv):
         os.makedirs(exp_dir, exist_ok=True)
-        dump_p = os.path.join(exp_dir, "coherency_metricx.jsonl")
-        csv_p = os.path.join(exp_dir, "coherency_sweep_metricx.csv")
-        tsv_p = os.path.join(exp_dir, "coherency_sweep_metricx.tsv")
+        dump_p = os.path.join(exp_dir, f"coherency_{args.model}.jsonl")
+        csv_p = os.path.join(exp_dir, f"coherency_sweep_{args.model}.csv")
+        tsv_p = os.path.join(exp_dir, f"coherency_sweep_{args.model}.tsv")
 
     # exports (all derived from the same in-memory records)
     if dump_p:
