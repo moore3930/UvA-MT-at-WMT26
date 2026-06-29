@@ -26,6 +26,16 @@ uv sync
 
 > If you prefer a lower-level pip-style install, `uv pip install -r pyproject.toml` also works, but `uv sync` is the recommended project workflow.
 
+## Tests
+
+Run the local quick integrity tests with:
+
+```bash
+.local_scripts/gemini/run_tests.sh
+```
+
+These are fast local checks for the judge/parser path and do not call the API.
+
 ---
 
 ## 0. Goal

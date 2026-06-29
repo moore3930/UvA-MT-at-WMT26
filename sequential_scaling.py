@@ -264,7 +264,10 @@ class LLMCache:
         self.path = path
         self.enabled = enabled
         self.mem = {}
+        self.loaded_entries = 0
+        self.lookups = 0
         self.hits = 0
+        self.writes = 0
         self.fh = None
         self.lock = threading.Lock()  # guards mem + file writes under concurrency
         self.inflight = {}
@@ -282,6 +285,7 @@ class LLMCache:
                         self.mem[rec["key"]] = rec["hypothesis"]
                     except (json.JSONDecodeError, KeyError):
                         continue
+        self.loaded_entries = len(self.mem)
         path.parent.mkdir(parents=True, exist_ok=True)
         self.fh = path.open("a", encoding="utf-8")
 
@@ -296,6 +300,7 @@ class LLMCache:
         if not self.enabled:
             return None
         with self.lock:
+            self.lookups += 1
             val = self.mem.get(key)
             if val is not None:
                 self.hits += 1
@@ -311,6 +316,7 @@ class LLMCache:
             self.fh.write(json.dumps({"key": key, "hypothesis": hypothesis},
                                      ensure_ascii=False) + "\n")
             self.fh.flush()
+            self.writes += 1
 
     def get_or_compute(self, key: str, compute_fn):
         """Return a cached value or compute it once across concurrent threads."""
@@ -319,6 +325,7 @@ class LLMCache:
 
         while True:
             with self.lock:
+                self.lookups += 1
                 val = self.mem.get(key)
                 if val is not None:
                     self.hits += 1
@@ -348,6 +355,7 @@ class LLMCache:
                         self.fh.write(json.dumps({"key": key, "hypothesis": value},
                                                  ensure_ascii=False) + "\n")
                         self.fh.flush()
+                        self.writes += 1
                     self.inflight.pop(key, None)
                 pending.event.set()
                 return value
@@ -363,6 +371,27 @@ class LLMCache:
                     return val
             raise RuntimeError(
                 f"Cache waiter woke up for missing key {key}; expected cached value")
+
+    def stats(self) -> dict:
+        """Return a thread-safe snapshot of cache activity."""
+        with self.lock:
+            lookups = self.lookups
+            hits = self.hits
+            writes = self.writes
+            total_entries = len(self.mem)
+            loaded_entries = self.loaded_entries
+            inflight = len(self.inflight)
+        return {
+            "enabled": self.enabled,
+            "loaded_entries": loaded_entries,
+            "lookups": lookups,
+            "hits": hits,
+            "misses": lookups - hits,
+            "writes": writes,
+            "total_entries": total_entries,
+            "inflight": inflight,
+            "hit_rate": (hits / lookups) if lookups else None,
+        }
 
     def close(self):
         if self.fh:
@@ -457,7 +486,7 @@ def main():
     cache_path = Path(args.cache_path) if args.cache_path else results_dir / ".gpt_cache.jsonl"
     cache = LLMCache(cache_path, enabled=not args.no_cache and not args.dry_run)
     if cache.enabled:
-        print(f"cache: {cache_path} (loaded {len(cache.mem)} entries)")
+        print(f"cache: {cache_path} (loaded {cache.loaded_entries} entries)")
 
     out_handles = {}
     done_ids = {}
@@ -562,7 +591,13 @@ def main():
                     print(f"  [error] doc_id={it['doc_id']} failed: {e}",
                           file=sys.stderr)
                 if n_done and n_done % 20 == 0:
-                    print(f".. {n_done}/{total} done (failed={n_fail})")
+                    if cache.enabled:
+                        stats = cache.stats()
+                        print(f".. {n_done}/{total} done (failed={n_fail}; "
+                              f"cache hits={stats['hits']}/{stats['lookups']}, "
+                              f"new={stats['writes']})")
+                    else:
+                        print(f".. {n_done}/{total} done (failed={n_fail})")
         else:
             with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
                 futures = {ex.submit(worker, it): it for it in work}
@@ -576,15 +611,27 @@ def main():
                         print(f"  [error] doc_id={it['doc_id']} failed: {e}",
                               file=sys.stderr)
                     if n_done and n_done % 20 == 0:
-                        print(f".. {n_done}/{total} done (failed={n_fail})")
+                        if cache.enabled:
+                            stats = cache.stats()
+                            print(f".. {n_done}/{total} done (failed={n_fail}; "
+                                  f"cache hits={stats['hits']}/{stats['lookups']}, "
+                                  f"new={stats['writes']})")
+                        else:
+                            print(f".. {n_done}/{total} done (failed={n_fail})")
     finally:
         for fh in out_handles.values():
             fh.close()
         cache.close()
 
     print(f"\nDone. read {n_read} lines; matched {n_kept}; written {n_done}; "
-          f"failed {n_fail}; resume-skipped {n_skip}; multimodal {n_mm}; "
-          f"cache hits {cache.hits}.")
+          f"failed {n_fail}; resume-skipped {n_skip}; multimodal {n_mm}.")
+    if cache.enabled:
+        stats = cache.stats()
+        hit_rate = (f"{100 * stats['hit_rate']:.1f}%"
+                    if stats["hit_rate"] is not None else "n/a")
+        print(f"cache activity: hits={stats['hits']}/{stats['lookups']} "
+              f"({hit_rate}), new entries={stats['writes']}, "
+              f"total entries={stats['total_entries']}")
     print(f"results dir: {results_dir.resolve()}")
 
 

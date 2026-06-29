@@ -261,7 +261,7 @@ def main():
                   else out_path.with_suffix(".cache.jsonl"))
     cache = LLMCache(cache_path, enabled=not args.no_cache)
     if cache.enabled:
-        print(f"cache: {cache_path} (loaded {len(cache.mem)} entries)")
+        print(f"cache: {cache_path} (loaded {cache.loaded_entries} entries)")
 
     # build the work list of (source, trans_a, trans_b) triples
     work = []
@@ -319,7 +319,13 @@ def main():
                 fout.flush()
                 n_done += 1
                 if n_done % 20 == 0:
-                    print(f".. {n_done}/{len(work)} judged")
+                    if cache.enabled:
+                        stats = cache.stats()
+                        print(f".. {n_done}/{len(work)} judged "
+                              f"(cache hits={stats['hits']}/{stats['lookups']}, "
+                              f"new={stats['writes']})")
+                    else:
+                        print(f".. {n_done}/{len(work)} judged")
     finally:
         fout.close()
         cache.close()
@@ -332,6 +338,13 @@ def main():
     if not args.no_swap:
         print(f"  order-inconsistent (counted as tie): {n_inconsistent} "
               f"({100*n_inconsistent/total:.1f}%)")
+    if cache.enabled:
+        stats = cache.stats()
+        hit_rate = (f"{100 * stats['hit_rate']:.1f}%"
+                    if stats["hit_rate"] is not None else "n/a")
+        print(f"  cache activity: hits={stats['hits']}/{stats['lookups']} "
+              f"({hit_rate}), new entries={stats['writes']}, "
+              f"total entries={stats['total_entries']}")
     print(f"output: {out_path.resolve()}")
 
 

@@ -137,7 +137,7 @@ def main():
                   else out_path.parent / "cache" / f"{out_path.stem}.cache.jsonl")
     cache = LLMCache(cache_path, enabled=not args.no_cache)
     if cache.enabled:
-        print(f"cache: {cache_path} (loaded {len(cache.mem)} entries)")
+        print(f"cache: {cache_path} (loaded {cache.loaded_entries} entries)")
 
     # ---- phase 1: load docs and enumerate every ORDERED pair to judge ----
     docs = {}        # doc_id -> {"hypos","tgt","source","K","mat"}
@@ -211,7 +211,13 @@ def main():
                 mat[i][j] = 1 if winner == "A" else -1 if winner == "B" else 0
                 n_done += 1
                 if n_done % 50 == 0:
-                    print(f".. {n_done}/{len(tasks)} ordered pairs judged")
+                    if cache.enabled:
+                        stats = cache.stats()
+                        print(f".. {n_done}/{len(tasks)} ordered pairs judged "
+                              f"(cache hits={stats['hits']}/{stats['lookups']}, "
+                              f"new={stats['writes']})")
+                    else:
+                        print(f".. {n_done}/{len(tasks)} ordered pairs judged")
 
     # ---- phase 3: write per-doc matrices (+ direction-aware aggregates) ----
     def disagreements(mat, K):
@@ -263,6 +269,13 @@ def main():
         print(f"position-order disagreements: {total_disagree}/{total_pairs} "
               f"pairs ({100 * total_disagree / total_pairs:.1f}%) "
               f"-> judge position sensitivity")
+    if cache.enabled:
+        stats = cache.stats()
+        hit_rate = (f"{100 * stats['hit_rate']:.1f}%"
+                    if stats["hit_rate"] is not None else "n/a")
+        print(f"cache activity: hits={stats['hits']}/{stats['lookups']} "
+              f"({hit_rate}), new entries={stats['writes']}, "
+              f"total entries={stats['total_entries']}")
     print(f"output: {out_path.resolve()}")
 
 
