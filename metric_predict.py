@@ -49,10 +49,6 @@ class MetricxPredictor(BasePredictor):
             per_device_eval_batch_size=param_dict.get("batch_size", 1),
             dataloader_pin_memory=False,
         )
-        if param_dict.get("cache_file"):
-            self.cache = param_dict.get("cache")
-        else:
-            self.cache = {}
       
 
     def predict(self, set_of_examples: list):
@@ -102,7 +98,7 @@ class MetricxPredictor(BasePredictor):
         #predict for each hypothesis to get the pointwise scores
         predictions, _, _ = trainer.predict(test_dataset=ds)
         for pred, example in zip(predictions, ds):
-            example["prediction"] = float(pred)
+            example["prediction"] = 5.0-float(pred)
             del example["input"]
             del example["input_ids"]
             del example["attention_mask"]
@@ -124,7 +120,7 @@ class CometQEPredictor(BasePredictor):
                      "ref": ex.get("reference", "")} for ex in examples]
     
         # Call predict method:
-        model_output = self.model.predict(to_translate, batch_size=8, gpus=1)
+        model_output = self.model.predict(to_translate, batch_size=1, gpus=1)
 
         for example, score in zip(examples, model_output.scores):
             example["prediction"] = float(score)
@@ -178,7 +174,7 @@ class RemedyQEPredictor(BasePredictor):
         
         # Convert DataFrame back to list of dicts
         results = []
-        for example, score in zip(examples, df_with_scores['raw:seg']):
+        for example, score in zip(examples, df_with_scores['sigmoid:seg']):
             example["prediction"] = float(score)
             results.append(example)
         return results
@@ -205,3 +201,4 @@ class RemedyQEPredictor(BasePredictor):
         df = pd.DataFrame.from_dict(data_dict)
         
         return df
+                                            

@@ -19,8 +19,8 @@ def parse_args():
     p.add_argument("--exp", default="",
                    help="experiment name; outputs go to <in_dir>/<model>/<exp>/ "
                         "(use to separate different judge prompts under a model)")
-    p.add_argument("--metric_params", default={}, help="dict dontains the parameters for the metric predictor")
-    p.add_argument("--ae-metric",default="metricx-24")
+    p.add_argument("--metric_params", default={}, help="dict contains the parameters for the metric predictor")
+    p.add_argument("--ae-metric",default="cometqe",choices=["metricx-24","cometqe","remedyqe"],help="which metric to use for pairwise scoring")
     p.add_argument("--scores-cache",help="json file to cache pointwise scores (default: no caching)")
     p.add_argument("--src-lang", default="English")
     p.add_argument("--tgt-lang", default="",
@@ -70,12 +70,14 @@ def main():
 
     #load model for evaluation
     predictor = None
+    metric_params = args.metric_params if isinstance(args.metric_params, dict) else json.loads(args.metric_params)
+    print(f"loading predictor for {args.ae_metric} with params: {metric_params}")
     if args.ae_metric == "metricx-24":
-        predictor = MetricxPredictor(args.metric_params)
+        predictor = MetricxPredictor(metric_params)
     if args.ae_metric == "cometqe":
-        predictor = CometQEPredictor(args.metric_params)
+        predictor = CometQEPredictor(metric_params)
     if args.ae_metric == "remedyqe":
-        predictor = RemedyQEPredictor(args.metric_params)
+        predictor = RemedyQEPredictor(metric_params)
 
 
     # ---- phase 1: load docs and enumerate every ORDERED pair to judge ----
@@ -121,9 +123,9 @@ def main():
                 if i==j:
                     continue
                 ratio = d["scores"][i]/d["scores"][j]
-                if ratio > 1:
+                if ratio > 1.0+args.thrs:
                     mat[i][j] = 1
-                elif ratio < 1:
+                elif ratio < 1.0-args.thrs:
                     mat[i][j] = -1
                 else:
                     mat[i][j] = 0
