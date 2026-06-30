@@ -20,7 +20,7 @@ Pipeline:
   5) Run k sequential-scaling rounds: round 0 produces an initial translation,
      each later round asks the model to "translate again to make it better"
      while seeing the previous `context_win` rounds as chat history
-  6) Write results to results/<src>-<tgt>.jsonl, one record per line holding
+  6) Write results to results/<model>/<src>-<tgt>.jsonl, one record per line holding
      every round as hypo_0 .. hypo_{k-1} plus the final `hypothesis`, while
      keeping the input doc_id, tgt_lang and source_doc
 
@@ -427,7 +427,9 @@ def parse_args():
     p.add_argument("--input",
                    default="/Users/diwu001/workplace/personal/wmt26/wmt26_genmt_blindset.jsonl",
                    help="input jsonl path")
-    p.add_argument("--results-dir", default="results", help="output directory")
+    p.add_argument("--results-dir", default="results",
+                   help="output directory; results are written under a per-model "
+                        "subdir <results-dir>/<model>/<src>-<tgt>.jsonl")
     p.add_argument("--langs", default="zh_CN",
                    help="wanted target languages (raw tgt_lang codes, comma-separated, "
                         "e.g. zh_CN,deu_Latn); default = zh_CN (Chinese); "
@@ -474,7 +476,9 @@ def main():
     if not in_path.exists():
         sys.exit(f"input file not found: {in_path}")
 
-    results_dir = Path(args.results_dir)
+    # scope outputs by model so different models never share/clobber files:
+    # <results-dir>/<model>/<src>-<tgt>.jsonl (default cache lives here too)
+    results_dir = Path(args.results_dir) / safe_name(args.model)
     results_dir.mkdir(parents=True, exist_ok=True)
 
     want = {x.strip() for x in args.langs.split(",") if x.strip()}
