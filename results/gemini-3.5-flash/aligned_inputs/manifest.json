@@ -1,0 +1,23 @@
+{
+  "input_path": "/home/stroshi/UvA-MT-at-WMT26/wmt26_genmt_blindset.jsonl",
+  "langs": {
+    "ar_AR": {
+      "count": 150,
+      "first_doc_id": "00198-ar_AR",
+      "last_doc_id": "00299-ar_AR",
+      "path": "/home/stroshi/UvA-MT-at-WMT26/results/gemini-3.5-flash/aligned_inputs/en-ar_AR.jsonl"
+    },
+    "ru_RU": {
+      "count": 917,
+      "first_doc_id": "43704-ru_RU",
+      "last_doc_id": "44419-ru_RU",
+      "path": "/home/stroshi/UvA-MT-at-WMT26/results/gemini-3.5-flash/aligned_inputs/en-ru_RU.jsonl"
+    },
+    "zh_CN": {
+      "count": 747,
+      "first_doc_id": "46038-zh_CN",
+      "last_doc_id": "46745-zh_CN",
+      "path": "/home/stroshi/UvA-MT-at-WMT26/results/gemini-3.5-flash/aligned_inputs/en-zh_CN.jsonl"
+    }
+  }
+}

@@ -38,9 +38,15 @@ import threading
 from concurrent.futures import as_completed, ThreadPoolExecutor
 from pathlib import Path
 
+from results.special_output_markers import OUTPUT_BLOCKED, OUTPUT_ERROR
+
 # LLM client/call live in util/openai_client.py (OpenAI GPT). The judge scripts
 # import the same two helpers, so the whole pipeline talks to OpenAI.
-from util.openai_client import build_client, call_openai
+from util.openai_client import (
+    ContentFilteredError,
+    build_client,
+    call_openai_with_usage,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -229,6 +235,106 @@ def pair_filename(src_code: str, tgt_lang: str) -> str:
     return f"{s}-{t}.jsonl"
 
 
+PRICING_PROFILES = {
+    "gemini-3.5-flash": {
+        "input_per_million_usd": 1.50,
+        "output_per_million_usd": 9.00,
+    },
+    "gemini-2.5-pro": {
+        "input_per_million_usd": 1.25,
+        "output_per_million_usd": 10.00,
+    },
+    "gemini-2.5-flash": {
+        "input_per_million_usd": 0.30,
+        "output_per_million_usd": 2.50,
+    },
+    "gemini-3.1-flash-lite": {
+        "input_per_million_usd": 0.25,
+        "output_per_million_usd": 1.50,
+    },
+    "gemini-2.5-flash-lite": {
+        "input_per_million_usd": 0.10,
+        "output_per_million_usd": 0.40,
+    },
+}
+
+
+def usage_log_record(doc_id: str, tgt_lang: str, model: str, round_idx: int,
+                     usage: dict, pricing_profile: str = "",
+                     cache_hit: bool = False) -> dict:
+    """Build one per-call usage record and attach an estimated cost."""
+    prompt_tokens = int((usage or {}).get("prompt_tokens") or 0)
+    completion_tokens = int((usage or {}).get("completion_tokens") or 0)
+    total_tokens = int((usage or {}).get("total_tokens") or 0)
+    inferred_thinking_tokens = max(
+        total_tokens - prompt_tokens - completion_tokens, 0)
+    billed_output_tokens = max(total_tokens - prompt_tokens, 0)
+    cost_usd = None
+    rates = PRICING_PROFILES.get(pricing_profile) if pricing_profile else None
+    if rates is not None:
+        cost_usd = round(
+            (prompt_tokens / 1_000_000.0) * rates["input_per_million_usd"]
+            + (billed_output_tokens / 1_000_000.0)
+            * rates["output_per_million_usd"],
+            10,
+        )
+    return {
+        "doc_id": doc_id,
+        "tgt_lang": tgt_lang,
+        "model": model,
+        "round": round_idx,
+        "cache_hit": cache_hit,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "inferred_thinking_tokens": inferred_thinking_tokens,
+        "estimated_cost_usd": cost_usd,
+    }
+
+
+def empty_usage_bucket() -> dict:
+    return {
+        "calls": 0,
+        "cache_hits": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "inferred_thinking_tokens": 0,
+        "estimated_cost_usd": 0.0,
+    }
+
+
+def accumulate_usage(bucket: dict, record: dict):
+    """Accumulate one usage record into a summary bucket."""
+    bucket["calls"] += 1
+    bucket["cache_hits"] += 1 if record.get("cache_hit") else 0
+    bucket["prompt_tokens"] += record["prompt_tokens"]
+    bucket["completion_tokens"] += record["completion_tokens"]
+    bucket["total_tokens"] += record["total_tokens"]
+    bucket["inferred_thinking_tokens"] += record["inferred_thinking_tokens"]
+    if record.get("estimated_cost_usd") is not None:
+        bucket["estimated_cost_usd"] = round(
+            bucket["estimated_cost_usd"] + record["estimated_cost_usd"], 10)
+
+
+def write_json(path: Path, obj):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(obj, f, ensure_ascii=False, indent=2, sort_keys=True)
+        f.write("\n")
+
+
+def classify_failure(err: Exception) -> str:
+    """Map an exception to a stable failure kind."""
+    if isinstance(err, ContentFilteredError):
+        return "blocked"
+    return "error"
+
+
+def is_counted_failure_kind(kind: str) -> bool:
+    return kind in {"blocked", "error"}
+
+
 def load_done_ids(path: Path) -> set:
     done = set()
     if path.exists():
@@ -372,6 +478,62 @@ class LLMCache:
             raise RuntimeError(
                 f"Cache waiter woke up for missing key {key}; expected cached value")
 
+    def get_or_compute_payload(self, key: str, compute_fn, value_fn):
+        """Return (value, payload_or_none, cache_hit) with single-flight semantics."""
+        if not self.enabled:
+            payload = compute_fn()
+            return value_fn(payload), payload, False
+
+        while True:
+            with self.lock:
+                self.lookups += 1
+                val = self.mem.get(key)
+                if val is not None:
+                    self.hits += 1
+                    return val, None, True
+
+                pending = self.inflight.get(key)
+                if pending is None:
+                    pending = _PendingValue()
+                    self.inflight[key] = pending
+                    owner = True
+                else:
+                    owner = False
+
+            if owner:
+                try:
+                    payload = compute_fn()
+                    value = value_fn(payload)
+                except Exception as e:  # noqa: BLE001
+                    with self.lock:
+                        self.inflight.pop(key, None)
+                    pending.error = e
+                    pending.event.set()
+                    raise
+
+                with self.lock:
+                    if key not in self.mem:
+                        self.mem[key] = value
+                        self.fh.write(json.dumps({"key": key, "hypothesis": value},
+                                                 ensure_ascii=False) + "\n")
+                        self.fh.flush()
+                        self.writes += 1
+                    self.inflight.pop(key, None)
+                pending.event.set()
+                return value, payload, False
+
+            pending.event.wait()
+            if pending.error is not None:
+                raise pending.error
+
+            with self.lock:
+                val = self.mem.get(key)
+                if val is not None:
+                    self.hits += 1
+                    return val, None, True
+            raise RuntimeError(
+                f"Cache waiter woke up for missing key {key}; expected cached value")
+
     def stats(self) -> dict:
         """Return a thread-safe snapshot of cache activity."""
         with self.lock:
@@ -399,27 +561,76 @@ class LLMCache:
 
 
 def run_rounds(client, model, src_lang, tgt_lang, source, k, context_win,
-               system_prompt, temperature, cache, dry_run):
-    """Run k refinement rounds for one item; return the list [hypo_0 .. hypo_{k-1}].
+               system_prompt, temperature, cache, dry_run,
+               request_options=None):
+    """Run k refinement rounds for one item.
 
-    Each round is cached on its full message list, so reruns reuse prior work.
+    Returns (hypos, round_usage_records, terminal_error, terminal_kind).
+    Blocked/error rows keep any completed earlier rounds and fill the
+    blocked/unattempted tail with a marker so the output file stays aligned
+    with the reference set.
     """
     hypos = []   # hypotheses from finished rounds, in order
-    for _ in range(k):
+    round_usage = []
+    terminal_error = None
+    terminal_kind = None
+    for round_idx in range(k):
         messages = build_messages(
             src_lang, tgt_lang, source, hypos, context_win, system_prompt)
         if dry_run:
             hypo = ""
+            usage = {}
+            cache_hit = False
         else:
             ckey = LLMCache.make_key(
                 model, temperature,
                 json.dumps(messages, ensure_ascii=False, sort_keys=True))
-            hypo = cache.get_or_compute(
-                ckey,
-                lambda: call_openai(client, model, messages, temperature=temperature),
-            )
+            try:
+                hypo, payload, cache_hit = cache.get_or_compute_payload(
+                    ckey,
+                    lambda: call_openai_with_usage(
+                        client,
+                        model,
+                        messages,
+                        temperature=temperature,
+                        request_options=request_options,
+                    ),
+                    lambda payload: payload[0],
+                )
+            except ContentFilteredError as err:
+                terminal_error = err
+                terminal_kind = "blocked"
+                hypos.extend([OUTPUT_BLOCKED] * (k - len(hypos)))
+                round_usage.append({
+                    "round": round_idx,
+                    "cache_hit": False,
+                    "usage": {},
+                    "blocked": True,
+                    "error": False,
+                })
+                break
+            except Exception as err:  # noqa: BLE001
+                terminal_error = err
+                terminal_kind = "error"
+                hypos.extend([OUTPUT_ERROR] * (k - len(hypos)))
+                round_usage.append({
+                    "round": round_idx,
+                    "cache_hit": False,
+                    "usage": {},
+                    "blocked": False,
+                    "error": True,
+                })
+                break
+            usage = payload[1] if payload is not None else {}
         hypos.append(hypo)
-    return hypos
+        round_usage.append({
+            "round": round_idx,
+            "cache_hit": cache_hit,
+            "usage": usage,
+            "blocked": False,
+            "error": False,
+        })
+    return hypos, round_usage, terminal_error, terminal_kind
 
 
 def parse_args():
@@ -437,6 +648,9 @@ def parse_args():
     p.add_argument("--model", default="gpt-4o-mini",
                    help="OpenAI model name (e.g. gpt-4o, gpt-4o-mini, gpt-4.1)")
     p.add_argument("--temperature", type=float, default=0.0)
+    p.add_argument("--reasoning-effort", default="",
+                   help="optional reasoning control for compatible providers "
+                        "(e.g. minimal, low, medium, high)")
     p.add_argument("-k", "--k", type=int, default=1,
                    help="number of translation rounds (sequential scaling); "
                         "round 0 translates, later rounds refine. Stored as "
@@ -466,6 +680,26 @@ def parse_args():
     p.add_argument("--cache-path", default="",
                    help="prompt-level cache file (default <results-dir>/.gpt_cache.jsonl)")
     p.add_argument("--no-cache", action="store_true", help="disable the prompt-level cache")
+    p.add_argument("--write-order", choices=("completion", "input"),
+                   default="completion",
+                   help="write finished docs as they complete or preserve input order")
+    p.add_argument("--usage-log", default="",
+                   help="jsonl path for per-call token usage (default "
+                        "<results-dir>/usage/<input_stem>.usage.jsonl when tracking)")
+    p.add_argument("--cost-summary", default="",
+                   help="json path for aggregated token usage and estimated cost "
+                        "(default <results-dir>/usage/<input_stem>.summary.json "
+                        "when tracking)")
+    p.add_argument("--failure-log", default="",
+                   help="jsonl path for per-doc failures (default "
+                        "<results-dir>/usage/<input_stem>.failures.jsonl when tracking)")
+    p.add_argument("--failure-summary", default="",
+                   help="json path for aggregated failure counts (default "
+                        "<results-dir>/usage/<input_stem>.failures.summary.json "
+                        "when tracking)")
+    p.add_argument("--pricing-profile", default="",
+                   choices=sorted(PRICING_PROFILES),
+                   help="pricing profile for estimated cost reporting")
     return p.parse_args()
 
 
@@ -486,6 +720,90 @@ def main():
         want = set()
     print(f"target language filter: {sorted(want)}" if want
           else "processing all target languages")
+
+    request_options = {}
+    if args.reasoning_effort:
+        request_options["reasoning_effort"] = args.reasoning_effort
+    if not request_options:
+        request_options = None
+
+    track_usage = (not args.dry_run and bool(
+        args.usage_log or args.cost_summary or args.pricing_profile))
+    usage_log_path = None
+    cost_summary_path = None
+    failure_log_path = None
+    failure_summary_path = None
+    usage_fh = None
+    failure_fh = None
+    usage_totals = empty_usage_bucket()
+    per_language_usage = {}
+    docs_written_by_lang = {}
+    loaded_usage_records = 0
+    failure_counts = {"blocked": 0, "error": 0}
+    per_language_failures = {}
+    latest_failures = {}
+    loaded_failure_records = 0
+
+    def load_existing_usage(path: Path):
+        totals = empty_usage_bucket()
+        per_lang = {}
+        loaded = 0
+        if not path.exists():
+            return totals, per_lang, loaded
+        with path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                accumulate_usage(totals, record)
+                lang_bucket = per_lang.setdefault(
+                    record.get("tgt_lang", ""), empty_usage_bucket())
+                accumulate_usage(lang_bucket, record)
+                loaded += 1
+        return totals, per_lang, loaded
+
+    if track_usage:
+        usage_dir = results_dir / "usage"
+        usage_log_path = (Path(args.usage_log) if args.usage_log
+                          else usage_dir / f"{in_path.stem}.usage.jsonl")
+        cost_summary_path = (Path(args.cost_summary) if args.cost_summary
+                             else usage_dir / f"{in_path.stem}.summary.json")
+        failure_log_path = (Path(args.failure_log) if args.failure_log
+                            else usage_dir / f"{in_path.stem}.failures.jsonl")
+        failure_summary_path = (Path(args.failure_summary) if args.failure_summary
+                                else usage_dir / f"{in_path.stem}.failures.summary.json")
+        usage_log_path.parent.mkdir(parents=True, exist_ok=True)
+        usage_totals, per_language_usage, loaded_usage_records = (
+            load_existing_usage(usage_log_path))
+        usage_fh = usage_log_path.open("a", encoding="utf-8")
+
+        if failure_log_path.exists():
+            with failure_log_path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        record = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    doc_id = record.get("doc_id")
+                    if doc_id:
+                        latest_failures[doc_id] = record
+                        loaded_failure_records += 1
+        for record in latest_failures.values():
+            kind = record.get("kind", "error")
+            if not is_counted_failure_kind(kind):
+                continue
+            failure_counts[kind] = failure_counts.get(kind, 0) + 1
+            lang_bucket = per_language_failures.setdefault(
+                record.get("tgt_lang", ""), {"blocked": 0, "error": 0})
+            lang_bucket[kind] = lang_bucket.get(kind, 0) + 1
+        failure_fh = failure_log_path.open("a", encoding="utf-8")
 
     cache_path = Path(args.cache_path) if args.cache_path else results_dir / ".gpt_cache.jsonl"
     cache = LLMCache(cache_path, enabled=not args.no_cache and not args.dry_run)
@@ -543,6 +861,7 @@ def main():
                 continue
 
             work.append({
+                "work_idx": len(work),
                 "doc_id": doc_id, "tgt_lang": tgt_lang, "source_doc": source_doc,
                 "src_name": lang_name(src_code), "tgt_name": lang_name(tgt_lang),
                 "fh": fh,
@@ -568,10 +887,21 @@ def main():
 
     def worker(it):
         client = None if args.dry_run else thread_client()
-        hypos = run_rounds(client, args.model, it["src_name"], it["tgt_name"],
-                           it["source_doc"], args.k, args.context_win,
-                           args.system, args.temperature, cache, args.dry_run)
-        return it, hypos
+        hypos, round_usage, terminal_error, terminal_kind = run_rounds(
+            client,
+            args.model,
+            it["src_name"],
+            it["tgt_name"],
+            it["source_doc"],
+            args.k,
+            args.context_win,
+            args.system,
+            args.temperature,
+            cache,
+            args.dry_run,
+            request_options=request_options,
+        )
+        return it, hypos, round_usage, terminal_error, terminal_kind
 
     def write_result(it, hypos):
         out_rec = {"doc_id": it["doc_id"], "tgt_lang": it["tgt_lang"],
@@ -582,53 +912,201 @@ def main():
         it["fh"].write(json.dumps(out_rec, ensure_ascii=False) + "\n")
         it["fh"].flush()
 
-    n_done = n_fail = 0
+    def write_usage_records(it, round_usage):
+        if not track_usage:
+            return
+        for round_info in round_usage:
+            record = usage_log_record(
+                it["doc_id"],
+                it["tgt_lang"],
+                args.model,
+                round_info["round"],
+                round_info["usage"],
+                pricing_profile=args.pricing_profile,
+                cache_hit=round_info["cache_hit"],
+            )
+            usage_fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+            usage_fh.flush()
+            accumulate_usage(usage_totals, record)
+            lang_bucket = per_language_usage.setdefault(
+                it["tgt_lang"], empty_usage_bucket())
+            accumulate_usage(lang_bucket, record)
+
+    n_done = n_blocked = n_error_rows = n_fail = 0
+    last_reported = 0
     total = len(work)
+
+    def maybe_report_progress():
+        nonlocal last_reported
+        processed = n_done + n_fail
+        if not processed or processed - last_reported < 20:
+            return
+        last_reported = processed
+        if cache.enabled:
+            stats = cache.stats()
+            print(f".. {processed}/{total} processed (written={n_done}; "
+                  f"error_rows={n_error_rows}; failed={n_fail}; "
+                  f"cache hits={stats['hits']}/{stats['lookups']}, "
+                  f"new={stats['writes']})")
+        else:
+            print(f".. {processed}/{total} processed (written={n_done}; "
+                  f"error_rows={n_error_rows}; failed={n_fail})")
+
+    def record_failure(it, err):
+        kind = classify_failure(err)
+        if not track_usage:
+            return kind
+        record = {
+            "doc_id": it["doc_id"],
+            "tgt_lang": it["tgt_lang"],
+            "model": args.model,
+            "kind": kind,
+            "error": str(err),
+        }
+        failure_fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+        failure_fh.flush()
+
+        prev = latest_failures.get(it["doc_id"])
+        if prev is not None:
+            prev_kind = prev.get("kind", "error")
+            if is_counted_failure_kind(prev_kind):
+                failure_counts[prev_kind] = max(
+                    failure_counts.get(prev_kind, 0) - 1, 0)
+                prev_bucket = per_language_failures.setdefault(
+                    prev.get("tgt_lang", ""), {"blocked": 0, "error": 0})
+                prev_bucket[prev_kind] = max(prev_bucket.get(prev_kind, 0) - 1, 0)
+        latest_failures[it["doc_id"]] = record
+        failure_counts[kind] = failure_counts.get(kind, 0) + 1
+        lang_bucket = per_language_failures.setdefault(
+            it["tgt_lang"], {"blocked": 0, "error": 0})
+        lang_bucket[kind] = lang_bucket.get(kind, 0) + 1
+        return kind
+
+    def resolve_failure_if_needed(it):
+        if not track_usage:
+            return
+        prev = latest_failures.get(it["doc_id"])
+        if prev is None:
+            return
+        prev_kind = prev.get("kind", "error")
+        if not is_counted_failure_kind(prev_kind):
+            return
+        record = {
+            "doc_id": it["doc_id"],
+            "tgt_lang": it["tgt_lang"],
+            "model": args.model,
+            "kind": "resolved",
+            "error": None,
+        }
+        failure_fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+        failure_fh.flush()
+        latest_failures[it["doc_id"]] = record
+        failure_counts[prev_kind] = max(failure_counts.get(prev_kind, 0) - 1, 0)
+        lang_bucket = per_language_failures.setdefault(
+            it["tgt_lang"], {"blocked": 0, "error": 0})
+        lang_bucket[prev_kind] = max(lang_bucket.get(prev_kind, 0) - 1, 0)
+
+    def commit_success(it, hypos, round_usage):
+        nonlocal n_done
+        write_result(it, hypos)
+        write_usage_records(it, round_usage)
+        resolve_failure_if_needed(it)
+        docs_written_by_lang[it["tgt_lang"]] = (
+            docs_written_by_lang.get(it["tgt_lang"], 0) + 1)
+        n_done += 1
+        maybe_report_progress()
+
+    def commit_terminal_marker(it, hypos, round_usage, err, kind):
+        nonlocal n_done, n_blocked, n_error_rows
+        write_result(it, hypos)
+        write_usage_records(it, round_usage)
+        docs_written_by_lang[it["tgt_lang"]] = (
+            docs_written_by_lang.get(it["tgt_lang"], 0) + 1)
+        record_failure(it, err)
+        n_done += 1
+        if kind == "blocked":
+            n_blocked += 1
+            print(f"  [blocked] doc_id={it['doc_id']}: {err}", file=sys.stderr)
+        else:
+            n_error_rows += 1
+            print(f"  [error-row] doc_id={it['doc_id']}: {err}", file=sys.stderr)
+        maybe_report_progress()
+
+    def commit_failure(it, err):
+        nonlocal n_fail
+        n_fail += 1
+        record_failure(it, err)
+        print(f"  [error] doc_id={it['doc_id']} failed: {err}", file=sys.stderr)
+        maybe_report_progress()
+
     try:
         if args.concurrency <= 1 or args.dry_run:
             for it in work:
                 try:
-                    write_result(it, worker(it)[1])
-                    n_done += 1
-                except Exception as e:  # noqa: BLE001
-                    n_fail += 1
-                    print(f"  [error] doc_id={it['doc_id']} failed: {e}",
-                          file=sys.stderr)
-                if n_done and n_done % 20 == 0:
-                    if cache.enabled:
-                        stats = cache.stats()
-                        print(f".. {n_done}/{total} done (failed={n_fail}; "
-                              f"cache hits={stats['hits']}/{stats['lookups']}, "
-                              f"new={stats['writes']})")
+                    _, hypos, round_usage, terminal_error, terminal_kind = worker(it)
+                    if terminal_error is not None:
+                        commit_terminal_marker(
+                            it, hypos, round_usage, terminal_error, terminal_kind)
                     else:
-                        print(f".. {n_done}/{total} done (failed={n_fail})")
+                        commit_success(it, hypos, round_usage)
+                except Exception as e:  # noqa: BLE001
+                    commit_failure(it, e)
         else:
             with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
                 futures = {ex.submit(worker, it): it for it in work}
+                pending = {}
+                next_write_idx = 0
                 for fut in as_completed(futures):
                     it = futures[fut]
                     try:
-                        write_result(it, fut.result()[1])
-                        n_done += 1
+                        outcome = ("ok",) + fut.result()
                     except Exception as e:  # noqa: BLE001
-                        n_fail += 1
-                        print(f"  [error] doc_id={it['doc_id']} failed: {e}",
-                              file=sys.stderr)
-                    if n_done and n_done % 20 == 0:
-                        if cache.enabled:
-                            stats = cache.stats()
-                            print(f".. {n_done}/{total} done (failed={n_fail}; "
-                                  f"cache hits={stats['hits']}/{stats['lookups']}, "
-                                  f"new={stats['writes']})")
+                        outcome = ("error", it, e)
+
+                    if args.write_order == "completion":
+                        if outcome[0] == "ok":
+                            (_tag, done_it, hypos, round_usage,
+                             terminal_error, terminal_kind) = outcome
+                            if terminal_error is not None:
+                                commit_terminal_marker(
+                                    done_it, hypos, round_usage,
+                                    terminal_error, terminal_kind)
+                            else:
+                                commit_success(done_it, hypos, round_usage)
                         else:
-                            print(f".. {n_done}/{total} done (failed={n_fail})")
+                            _tag, done_it, err = outcome
+                            commit_failure(done_it, err)
+                        continue
+
+                    pending[it["work_idx"]] = outcome
+                    while next_write_idx in pending:
+                        queued = pending.pop(next_write_idx)
+                        if queued[0] == "ok":
+                            (_tag, done_it, hypos, round_usage,
+                             terminal_error, terminal_kind) = queued
+                            if terminal_error is not None:
+                                commit_terminal_marker(
+                                    done_it, hypos, round_usage,
+                                    terminal_error, terminal_kind)
+                            else:
+                                commit_success(done_it, hypos, round_usage)
+                        else:
+                            _tag, done_it, err = queued
+                            commit_failure(done_it, err)
+                        next_write_idx += 1
     finally:
         for fh in out_handles.values():
             fh.close()
+        if usage_fh is not None:
+            usage_fh.close()
+        if failure_fh is not None:
+            failure_fh.close()
         cache.close()
 
     print(f"\nDone. read {n_read} lines; matched {n_kept}; written {n_done}; "
-          f"failed {n_fail}; resume-skipped {n_skip}; multimodal {n_mm}.")
+          f"blocked {n_blocked}; error-marked {n_error_rows}; failed {n_fail}; "
+          f"resume-skipped {n_skip}; "
+          f"multimodal {n_mm}.")
     if cache.enabled:
         stats = cache.stats()
         hit_rate = (f"{100 * stats['hit_rate']:.1f}%"
@@ -636,6 +1114,60 @@ def main():
         print(f"cache activity: hits={stats['hits']}/{stats['lookups']} "
               f"({hit_rate}), new entries={stats['writes']}, "
               f"total entries={stats['total_entries']}")
+    if track_usage and cost_summary_path is not None:
+        summary = {
+            "model": args.model,
+            "pricing_profile": args.pricing_profile or None,
+            "pricing_rates": PRICING_PROFILES.get(args.pricing_profile),
+            "input_path": str(in_path.resolve()),
+            "results_dir": str(results_dir.resolve()),
+            "usage_log_path": str(usage_log_path.resolve()),
+            "temperature": args.temperature,
+            "reasoning_effort": args.reasoning_effort or None,
+            "k": args.k,
+            "context_win": args.context_win,
+            "write_order": args.write_order,
+            "loaded_usage_records": loaded_usage_records,
+            "loaded_failure_records": loaded_failure_records,
+            "documents_written_this_run": n_done,
+            "documents_blocked_this_run": n_blocked,
+            "documents_error_this_run": n_error_rows + n_fail,
+            "documents_failed_this_run": n_blocked + n_error_rows + n_fail,
+            "resume_skipped_this_run": n_skip,
+            "totals": usage_totals,
+            "per_language": {},
+        }
+        for lang, bucket in sorted(per_language_usage.items()):
+            lang_summary = dict(bucket)
+            lang_summary["documents_written_this_run"] = docs_written_by_lang.get(lang, 0)
+            summary["per_language"][lang] = lang_summary
+        write_json(cost_summary_path, summary)
+        failure_summary = {
+            "model": args.model,
+            "input_path": str(in_path.resolve()),
+            "failure_log_path": (str(failure_log_path.resolve())
+                                  if failure_log_path is not None else None),
+            "documents_written_this_run": n_done,
+            "documents_blocked_this_run": n_blocked,
+            "documents_error_this_run": n_error_rows + n_fail,
+            "documents_failed_this_run": n_blocked + n_error_rows + n_fail,
+            "loaded_failure_records": loaded_failure_records,
+            "totals": failure_counts,
+            "per_language": {},
+            "latest_failures": sorted(latest_failures.values(), key=lambda rec: rec["doc_id"]),
+        }
+        for lang, bucket in sorted(per_language_failures.items()):
+            failure_summary["per_language"][lang] = {
+                "blocked": bucket.get("blocked", 0),
+                "error": bucket.get("error", 0),
+            }
+        write_json(failure_summary_path, failure_summary)
+        print(f"usage log: {usage_log_path.resolve()}")
+        print(f"cost summary: {cost_summary_path.resolve()}")
+        print(f"failure log: {failure_log_path.resolve()}")
+        print(f"failure summary: {failure_summary_path.resolve()}")
+        if args.pricing_profile:
+            print(f"estimated cost so far: ${usage_totals['estimated_cost_usd']:.4f}")
     print(f"results dir: {results_dir.resolve()}")
 
 

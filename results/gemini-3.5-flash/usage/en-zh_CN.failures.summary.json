@@ -1,0 +1,29 @@
+{
+  "documents_blocked_this_run": 1,
+  "documents_error_this_run": 0,
+  "documents_failed_this_run": 1,
+  "documents_written_this_run": 1,
+  "failure_log_path": "/home/stroshi/UvA-MT-at-WMT26/results/gemini-3.5-flash/usage/en-zh_CN.failures.jsonl",
+  "input_path": "/home/stroshi/UvA-MT-at-WMT26/results/gemini-3.5-flash/aligned_inputs/en-zh_CN.jsonl",
+  "latest_failures": [
+    {
+      "doc_id": "46392-zh_CN",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "zh_CN"
+    }
+  ],
+  "loaded_failure_records": 1,
+  "model": "gemini-3.5-flash",
+  "per_language": {
+    "zh_CN": {
+      "blocked": 1,
+      "error": 0
+    }
+  },
+  "totals": {
+    "blocked": 1,
+    "error": 0
+  }
+}

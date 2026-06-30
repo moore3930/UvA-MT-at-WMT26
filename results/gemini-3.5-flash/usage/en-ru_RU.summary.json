@@ -1,0 +1,44 @@
+{
+  "context_win": 1,
+  "documents_blocked_this_run": 0,
+  "documents_error_this_run": 0,
+  "documents_failed_this_run": 0,
+  "documents_written_this_run": 1,
+  "input_path": "/home/stroshi/UvA-MT-at-WMT26/results/gemini-3.5-flash/aligned_inputs/en-ru_RU.jsonl",
+  "k": 8,
+  "loaded_failure_records": 82,
+  "loaded_usage_records": 7139,
+  "model": "gemini-3.5-flash",
+  "per_language": {
+    "ru_RU": {
+      "cache_hits": 0,
+      "calls": 7147,
+      "completion_tokens": 258095,
+      "documents_written_this_run": 1,
+      "estimated_cost_usd": 4.0293525,
+      "inferred_thinking_tokens": 0,
+      "prompt_tokens": 1137665,
+      "total_tokens": 1395760
+    }
+  },
+  "pricing_profile": "gemini-3.5-flash",
+  "pricing_rates": {
+    "input_per_million_usd": 1.5,
+    "output_per_million_usd": 9.0
+  },
+  "reasoning_effort": "minimal",
+  "results_dir": "/home/stroshi/UvA-MT-at-WMT26/results/gemini-3.5-flash",
+  "resume_skipped_this_run": 916,
+  "temperature": 1.0,
+  "totals": {
+    "cache_hits": 0,
+    "calls": 7147,
+    "completion_tokens": 258095,
+    "estimated_cost_usd": 4.0293525,
+    "inferred_thinking_tokens": 0,
+    "prompt_tokens": 1137665,
+    "total_tokens": 1395760
+  },
+  "usage_log_path": "/home/stroshi/UvA-MT-at-WMT26/results/gemini-3.5-flash/usage/en-ru_RU.usage.jsonl",
+  "write_order": "input"
+}

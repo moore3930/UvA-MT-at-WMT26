@@ -1,0 +1,218 @@
+{
+  "documents_blocked_this_run": null,
+  "documents_error_this_run": null,
+  "documents_failed_this_run": null,
+  "documents_written_this_run": null,
+  "failure_log_path": "/home/stroshi/UvA-MT-at-WMT26/results/gemini-3.5-flash/usage/en-ru_RU.failures.jsonl",
+  "input_path": "/home/stroshi/UvA-MT-at-WMT26/wmt26_genmt_blindset.jsonl",
+  "latest_failures": [
+    {
+      "doc_id": "43681-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43705-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43708-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43744-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43746-ru_RU",
+      "error": "content filtered: content_filter: OTHER",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43803-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43804-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43840-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43847-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43852-ru_RU",
+      "error": null,
+      "kind": "resolved",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43857-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43866-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43888-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43938-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43987-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "43995-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "44098-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "44123-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "44129-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "44161-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "44174-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "44184-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "44259-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "44287-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "44327-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "44417-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "44495-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    },
+    {
+      "doc_id": "44500-ru_RU",
+      "error": "content filtered: content_filter: PROHIBITED_CONTENT",
+      "kind": "blocked",
+      "model": "gemini-3.5-flash",
+      "tgt_lang": "ru_RU"
+    }
+  ],
+  "loaded_failure_records": 83,
+  "model": "gemini-3.5-flash",
+  "per_language": {
+    "ru_RU": {
+      "blocked": 27,
+      "error": 0
+    }
+  },
+  "totals": {
+    "blocked": 27,
+    "error": 0
+  }
+}

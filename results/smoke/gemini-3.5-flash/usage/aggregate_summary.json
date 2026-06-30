@@ -1,0 +1,60 @@
+{
+  "failure_totals": {
+    "blocked": 0,
+    "error": 0
+  },
+  "k": 8,
+  "limit": 2,
+  "per_language": {
+    "ar_AR": {
+      "cache_hits": 0,
+      "calls": 16,
+      "completion_tokens": 179,
+      "documents_blocked": 0,
+      "documents_expected": 2,
+      "documents_failed": 0,
+      "documents_generated": 2,
+      "estimated_cost_usd": 0.004386,
+      "inferred_thinking_tokens": 0,
+      "prompt_tokens": 1850,
+      "total_tokens": 2029
+    },
+    "ru_RU": {
+      "cache_hits": 0,
+      "calls": 16,
+      "completion_tokens": 144,
+      "documents_blocked": 0,
+      "documents_expected": 2,
+      "documents_failed": 0,
+      "documents_generated": 2,
+      "estimated_cost_usd": 0.004026,
+      "inferred_thinking_tokens": 0,
+      "prompt_tokens": 1820,
+      "total_tokens": 1964
+    },
+    "zh_CN": {
+      "cache_hits": 0,
+      "calls": 16,
+      "completion_tokens": 133,
+      "documents_blocked": 0,
+      "documents_expected": 2,
+      "documents_failed": 0,
+      "documents_generated": 2,
+      "estimated_cost_usd": 0.004203,
+      "inferred_thinking_tokens": 0,
+      "prompt_tokens": 2004,
+      "total_tokens": 2137
+    }
+  },
+  "results_dir": "/home/stroshi/UvA-MT-at-WMT26/results/smoke/gemini-3.5-flash",
+  "totals": {
+    "cache_hits": 0,
+    "calls": 48,
+    "completion_tokens": 456,
+    "estimated_cost_usd": 0.012615,
+    "inferred_thinking_tokens": 0,
+    "prompt_tokens": 5674,
+    "total_tokens": 6130
+  },
+  "usage_dir": "/home/stroshi/UvA-MT-at-WMT26/results/smoke/gemini-3.5-flash/usage"
+}
