@@ -93,6 +93,12 @@ def parse_args():
     p.add_argument("--concurrency", type=int, default=32)
     p.add_argument("--limit", type=int, default=0, help="max docs (0=all)")
     p.add_argument("--api-key", default="")
+    p.add_argument("--reasoning-effort", default="",
+                   help="optional OpenAI-compatible reasoning effort "
+                        "(for Gemini, use e.g. none/minimal/low)")
+    p.add_argument("--json-only", action="store_true",
+                   help="request only the JSON winner verdict with no "
+                        "free-form reason")
     p.add_argument("--cache-path", default="",
                    help="default <out_dir>/cache/<stem>.cache.jsonl")
     p.add_argument("--no-cache", action="store_true")
@@ -139,6 +145,12 @@ def main():
     if cache.enabled:
         print(f"cache: {cache_path} (loaded {cache.loaded_entries} entries)")
 
+    request_options = {}
+    if args.reasoning_effort:
+        request_options["reasoning_effort"] = args.reasoning_effort
+    if not request_options:
+        request_options = None
+
     # ---- phase 1: load docs and enumerate every ORDERED pair to judge ----
     docs = {}        # doc_id -> {"hypos","tgt","source","K","mat"}
     tasks = []       # (doc_id, i, j) ordered pairs (i != j) to judge
@@ -161,13 +173,15 @@ def main():
             K = len(hypos)
             mat = [[0] * K for _ in range(K)]   # diagonal + identical -> 0
             docs[doc_id] = {"hypos": hypos, "tgt": tgt, "source": source,
-                            "K": K, "mat": mat}
+                            "K": K, "mat": mat,
+                            "identical_shortcuts": 0}
             for i in range(K):
                 for j in range(K):
                     if i == j:
                         continue
                     if hypos[i] == hypos[j]:
                         n_skip_identical += 1          # tie, no API call
+                        docs[doc_id]["identical_shortcuts"] += 1
                     else:
                         tasks.append((doc_id, i, j))
             n_doc += 1
@@ -193,7 +207,9 @@ def main():
         # swap=False -> ONE call, with hypo_i as A (shown first), hypo_j as B
         v = judge_pair(client_for_thread(), args.model, d["source"],
                        d["hypos"][i], d["hypos"][j], args.src_lang, d["tgt"],
-                       rubric_text, args.temperature, cache, swap=False)
+                       rubric_text, args.temperature, cache, swap=False,
+                       request_options=request_options,
+                       require_reason=not args.json_only)
         return task, v["winner"]
 
     n_done = n_fail = 0
@@ -241,6 +257,8 @@ def main():
                 "score": score,           # both-direction net score per hypo
                 "best": best,
                 "position_disagreements": disagreements(mat, K),
+                "pairwise_comparisons": K * (K - 1) - d["identical_shortcuts"],
+                "identical_shortcuts": d["identical_shortcuts"],
                 "source_doc": d["source"],
                 "hypos": d["hypos"],
             }

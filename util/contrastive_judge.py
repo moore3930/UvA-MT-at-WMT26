@@ -103,11 +103,24 @@ JUDGE_TEMPLATE = (
     '{{"winner": "A" | "B" | "tie", "reason": "<short justification>"}}'
 )
 
+JUDGE_TEMPLATE_JSON_ONLY = (
+    "Compare two candidate translations and decide which is better.\n\n"
+    "Source language: {src_lang}\n"
+    "Target language: {tgt_lang}\n\n"
+    "Judge against this rubric (earlier criteria matter more):\n{rubric}\n\n"
+    "=== SOURCE ===\n{source}\n\n"
+    "=== TRANSLATION A ===\n{trans_a}\n\n"
+    "=== TRANSLATION B ===\n{trans_b}\n\n"
+    "Return only a single JSON object on the last line and nothing after it:\n"
+    '{{"winner": "A" | "B" | "tie"}}'
+)
+
 
 def build_judge_messages(source, trans_a, trans_b, src_lang, tgt_lang,
-                         rubric_text):
+                         rubric_text, require_reason=True):
     """Assemble the [system, user] messages for one A-vs-B comparison."""
-    user = JUDGE_TEMPLATE.format(
+    template = JUDGE_TEMPLATE if require_reason else JUDGE_TEMPLATE_JSON_ONLY
+    user = template.format(
         src_lang=src_lang, tgt_lang=tgt_lang, rubric=rubric_text,
         source=source, trans_a=trans_a, trans_b=trans_b)
     return [{"role": "system", "content": JUDGE_SYSTEM},
@@ -135,27 +148,45 @@ def parse_verdict(text: str) -> dict:
 # One pairwise judgement (with optional position-bias swap)
 # ===========================================================================
 def _judge_once(client, model, source, cand_a, cand_b, src_lang, tgt_lang,
-                rubric_text, temperature, cache):
+                rubric_text, temperature, cache, request_options=None,
+                require_reason=True):
     """Judge with a fixed A/B assignment; return parsed verdict dict."""
     messages = build_judge_messages(source, cand_a, cand_b, src_lang, tgt_lang,
-                                    rubric_text)
+                                    rubric_text, require_reason=require_reason)
+    key_payload = {
+        "messages": messages,
+        "request_options": request_options or {},
+    }
     key = LLMCache.make_key(
         model, temperature,
-        "JUDGE\x00" + json.dumps(messages, ensure_ascii=False, sort_keys=True))
+        "JUDGE\x00" + json.dumps(key_payload, ensure_ascii=False, sort_keys=True))
     if cache:
         raw = cache.get_or_compute(
             key,
-            lambda: call_openai(client, model, messages, temperature=temperature),
+            lambda: call_openai(
+                client,
+                model,
+                messages,
+                temperature=temperature,
+                request_options=request_options,
+            ),
         )
     else:
-        raw = call_openai(client, model, messages, temperature=temperature)
+        raw = call_openai(
+            client,
+            model,
+            messages,
+            temperature=temperature,
+            request_options=request_options,
+        )
     v = parse_verdict(raw)
     v["raw"] = raw
     return v
 
 
 def judge_pair(client, model, source, trans_a, trans_b, src_lang, tgt_lang,
-               rubric_text, temperature, cache, swap=True):
+               rubric_text, temperature, cache, swap=True,
+               request_options=None, require_reason=True):
     """Compare trans_a vs trans_b; return a normalized verdict.
 
     With swap=True, judge both orders (A,B) and (B,A) to cancel position bias:
@@ -164,7 +195,9 @@ def judge_pair(client, model, source, trans_a, trans_b, src_lang, tgt_lang,
     """
     # order 1: A=trans_a, B=trans_b  -> verdict already in original terms
     v1 = _judge_once(client, model, source, trans_a, trans_b,
-                     src_lang, tgt_lang, rubric_text, temperature, cache)
+                     src_lang, tgt_lang, rubric_text, temperature, cache,
+                     request_options=request_options,
+                     require_reason=require_reason)
     votes = {"order_ab": v1["winner"]}
     reasons = {"order_ab": v1["reason"]}
 
@@ -174,7 +207,9 @@ def judge_pair(client, model, source, trans_a, trans_b, src_lang, tgt_lang,
 
     # order 2: A=trans_b, B=trans_a  -> remap result back to original terms
     v2 = _judge_once(client, model, source, trans_b, trans_a,
-                     src_lang, tgt_lang, rubric_text, temperature, cache)
+                     src_lang, tgt_lang, rubric_text, temperature, cache,
+                     request_options=request_options,
+                     require_reason=require_reason)
     remap = {"A": "B", "B": "A", "tie": "tie"}  # swapped -> original
     v2_norm = remap[v2["winner"]]
     votes["order_ba"] = v2_norm
@@ -228,6 +263,11 @@ def parse_args():
     p.add_argument("--concurrency", type=int, default=16)
     p.add_argument("--limit", type=int, default=0, help="max pairs (0=all)")
     p.add_argument("--api-key", default="")
+    p.add_argument("--reasoning-effort", default="",
+                   help="optional OpenAI-compatible reasoning effort "
+                        "(for Gemini, use e.g. none/minimal/low)")
+    p.add_argument("--json-only", action="store_true",
+                   help="request only the JSON verdict with no free-form reason")
     p.add_argument("--cache-path", default="", help="default <out>.cache.jsonl")
     p.add_argument("--no-cache", action="store_true")
     return p.parse_args()
@@ -263,6 +303,12 @@ def main():
     if cache.enabled:
         print(f"cache: {cache_path} (loaded {cache.loaded_entries} entries)")
 
+    request_options = {}
+    if args.reasoning_effort:
+        request_options["reasoning_effort"] = args.reasoning_effort
+    if not request_options:
+        request_options = None
+
     # build the work list of (source, trans_a, trans_b) triples
     work = []
     for doc_id in common:
@@ -291,7 +337,9 @@ def main():
         verdict = judge_pair(
             client_for_thread(), args.model, it["source"], it["trans_a"],
             it["trans_b"], args.src_lang, it["tgt_lang"], rubric_text,
-            args.temperature, cache, swap=not args.no_swap)
+            args.temperature, cache, swap=not args.no_swap,
+            request_options=request_options,
+            require_reason=not args.json_only)
         return it, verdict
 
     counts = {"A": 0, "B": 0, "tie": 0}
