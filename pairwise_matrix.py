@@ -46,7 +46,13 @@ from pathlib import Path
 
 from sequential_scaling import lang_name, LLMCache
 from util.openai_client import build_client
-from util.contrastive_judge import DEFAULT_RUBRIC, judge_pair, render_rubric
+from util.contrastive_judge import (
+    DEFAULT_RUBRIC,
+    instruction_for_record,
+    judge_pair,
+    render_rubric,
+    src_lang_for_record,
+)
 
 
 _HYPO_RE = re.compile(r"^hypo_(\d+)$")
@@ -85,7 +91,12 @@ def parse_args():
                         "(use to separate different judge prompts under a model)")
     p.add_argument("--model", default="gpt-4o-mini", help="OpenAI judge model")
     p.add_argument("--temperature", type=float, default=0.0)
-    p.add_argument("--src-lang", default="English")
+    p.add_argument("--src-lang", default="",
+                   help="fallback source language name. A source PARSED from each "
+                        "record's instruction ('Translate from X to Y') always "
+                        "wins; this value is used only when none can be parsed. "
+                        "Default empty = omit the 'Source language:' line when it "
+                        "cannot be established (plan 1).")
     p.add_argument("--tgt-lang", default="",
                    help="target language name (default: inferred from tgt_lang field)")
     p.add_argument("--rubric-file", default="",
@@ -96,6 +107,12 @@ def parse_args():
     p.add_argument("--reasoning-effort", default="",
                    help="optional OpenAI-compatible reasoning effort "
                         "(for Gemini, use e.g. none/minimal/low)")
+    p.add_argument("--with-instruction", action=argparse.BooleanOptionalAction,
+                   default=True,
+                   help="inject each record's task-specific instruction into the "
+                        "judge prompt (default on; trivial 'Translate from X to Y' "
+                        "instructions are skipped). Pass --no-with-instruction to "
+                        "judge on the rubric alone.")
     p.add_argument("--json-only", action="store_true",
                    help="request only the JSON winner verdict with no "
                         "free-form reason")
@@ -169,11 +186,13 @@ def main():
                 continue
             doc_id = rec.get("doc_id")
             tgt = args.tgt_lang or lang_name(rec.get("tgt_lang") or "")
+            src = src_lang_for_record(rec, args.src_lang)
+            instr = instruction_for_record(rec, args.with_instruction)
             source = rec.get("source_doc") or ""
             K = len(hypos)
             mat = [[0] * K for _ in range(K)]   # diagonal + identical -> 0
-            docs[doc_id] = {"hypos": hypos, "tgt": tgt, "source": source,
-                            "K": K, "mat": mat,
+            docs[doc_id] = {"hypos": hypos, "tgt": tgt, "src": src,
+                            "instr": instr, "source": source, "K": K, "mat": mat,
                             "identical_shortcuts": 0}
             for i in range(K):
                 for j in range(K):
@@ -206,10 +225,11 @@ def main():
         d = docs[doc_id]
         # swap=False -> ONE call, with hypo_i as A (shown first), hypo_j as B
         v = judge_pair(client_for_thread(), args.model, d["source"],
-                       d["hypos"][i], d["hypos"][j], args.src_lang, d["tgt"],
+                       d["hypos"][i], d["hypos"][j], d["src"], d["tgt"],
                        rubric_text, args.temperature, cache, swap=False,
                        request_options=request_options,
-                       require_reason=not args.json_only)
+                       require_reason=not args.json_only,
+                       instruction=d["instr"])
         return task, v["winner"]
 
     n_done = n_fail = 0

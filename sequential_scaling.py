@@ -20,7 +20,7 @@ Pipeline:
   5) Run k sequential-scaling rounds: round 0 produces an initial translation,
      each later round asks the model to "translate again to make it better"
      while seeing the previous `context_win` rounds as chat history
-  6) Write results to results/<model>/<src>-<tgt>.jsonl, one record per line holding
+  6) Write results to results/<model>/<tgt>.jsonl, one record per line holding
      every round as hypo_0 .. hypo_{k-1} plus the final `hypothesis`, while
      keeping the input doc_id, tgt_lang and source_doc
 
@@ -57,7 +57,9 @@ from util.openai_client import (
 LANG_MAP = {
     # codes that appear on the source side
     "en": "English",
+    "eng_Latn": "English",
     "tr": "Turkish",
+    "ita_Latn": "Italian",
     # target languages (with region / script variants)
     "aeb": "Tunisian Arabic",
     "ar_AR": "Arabic",
@@ -144,6 +146,28 @@ def transform_instruction(instruction: str):
     return new, src_holder["src"]
 
 
+# Class-A "minimal" instructions ("Translate from <x> to <y>[.]") carry no
+# information beyond what the STEP1/STEP2 templates already say, so they are
+# never injected: those records stay byte-for-byte identical to the old runs
+# (and their cache entries keep hitting).
+_TRIVIAL_INSTR = re.compile(r"^\s*Translate from \S+ to \S+\.?\s*$", re.IGNORECASE)
+
+
+def compose_system(base_system: str, instruction: str, enable: bool) -> str:
+    """Build the system message, optionally folding in the dataset instruction.
+
+    The STEP1/STEP2 user-turn templates are left untouched; any task-specific
+    guidance rides in the system message instead. Trivial class-A instructions
+    are dropped so the bulk of the data is unchanged from previous runs.
+    """
+    instruction = (instruction or "").strip()
+    if not enable or not instruction or _TRIVIAL_INSTR.match(instruction):
+        return base_system
+    if not base_system:
+        return instruction
+    return f"{base_system}\n\nTask-specific instruction:\n{instruction}"
+
+
 # --------------------------------------------------------------------------- #
 # Multi-round (sequential-scaling) prompting
 #   round 0 : an initial translation (STEP1)
@@ -162,19 +186,39 @@ STEP2_PROMPT = (
     "not output anything else after that.\n\n{src_lang}: {source}\n{tgt_lang}:"
 )
 
+# Source-unknown variants: when the source language cannot be determined we do
+# NOT assert one (the old code wrongly defaulted to English). The source is
+# simply omitted; the model auto-detects it from the text.
+STEP1_PROMPT_NOSRC = (
+    "Please translate the following text to {tgt_lang}. "
+    "Provide only one translation on the first line and do not output anything "
+    "else after that.\n\n{source}\n{tgt_lang}:"
+)
 
-def turn_prompt(is_first: bool, src_lang: str, tgt_lang: str, source: str) -> str:
+STEP2_PROMPT_NOSRC = (
+    "Please again translate the following text to {tgt_lang} to make it better. "
+    "Provide only one translation on the first line and do not output anything "
+    "else after that.\n\n{source}\n{tgt_lang}:"
+)
+
+
+def turn_prompt(is_first: bool, src_lang: str, tgt_lang: str, source: str,
+                src_known: bool = True) -> str:
     """User prompt for one conversation turn.
 
     The FIRST turn uses STEP1 ('please translate'); any later turn uses STEP2
-    ('please again translate ... to make it better').
+    ('please again translate ... to make it better'). When src_known is False
+    the source language is omitted entirely rather than guessed.
     """
-    template = STEP1_PROMPT if is_first else STEP2_PROMPT
-    return template.format(src_lang=src_lang, tgt_lang=tgt_lang, source=source)
+    if src_known:
+        template = STEP1_PROMPT if is_first else STEP2_PROMPT
+        return template.format(src_lang=src_lang, tgt_lang=tgt_lang, source=source)
+    template = STEP1_PROMPT_NOSRC if is_first else STEP2_PROMPT_NOSRC
+    return template.format(tgt_lang=tgt_lang, source=source)
 
 
 def build_messages(src_lang, tgt_lang, source, history_hypos,
-                   context_win, system_prompt):
+                   context_win, system_prompt, src_known=True):
     """Assemble the chat messages for the next round.
 
     history_hypos: hypotheses from finished rounds, in order. Only the last
@@ -191,12 +235,14 @@ def build_messages(src_lang, tgt_lang, source, history_hypos,
     window = history_hypos[-context_win:] if context_win > 0 else []
     for turn_idx, past_hypo in enumerate(window):
         messages.append({"role": "user",
-                         "content": turn_prompt(turn_idx == 0, src_lang, tgt_lang, source)})
+                         "content": turn_prompt(turn_idx == 0, src_lang, tgt_lang,
+                                                source, src_known)})
         messages.append({"role": "assistant", "content": past_hypo})
 
     # current request: STEP1 only when it is the very first turn (no history)
     messages.append({"role": "user",
-                     "content": turn_prompt(not window, src_lang, tgt_lang, source)})
+                     "content": turn_prompt(not window, src_lang, tgt_lang,
+                                            source, src_known)})
     return messages
 
 
@@ -204,35 +250,23 @@ def normalize(code: str) -> str:
     return code.strip().lower() if code else code
 
 
-# the source side may be written as a code or a language name; canonicalize it
-# to a single short code so the same language pair is not split into files
-_SRC_CANON = {
-    "en": "en", "eng": "en", "english": "en",
-    "tr": "tr", "tur": "tr", "turkish": "tr",
-    "ko": "ko", "kor": "ko", "korean": "ko",
-}
-
-
-def canon_src(src: str) -> str:
-    if not src:
-        return "en"
-    key = src.strip().lower()
-    if key in _SRC_CANON:
-        return _SRC_CANON[key]
-    if key in _LANG_MAP_LC:  # already a known code
-        return key
-    return safe_name(key)
-
-
 def safe_name(s: str) -> str:
     """Make a string safe to use in a filename."""
     return re.sub(r"[^0-9A-Za-z._-]+", "_", s) if s else s
 
 
-def pair_filename(src_code: str, tgt_lang: str) -> str:
-    s = safe_name(src_code) or "src"
+def tgt_filename(tgt_lang: str) -> str:
+    """Output filename for a target language.
+
+    Keyed on the target language only: tgt_lang is the dataset's reliable
+    partition key (it is what --langs matches), whereas the source side is
+    inferred and sometimes wrong (the 'professional translator' templates
+    carry no parseable 'from X to Y', and a single tgt_lang can mix sources,
+    e.g. cs->de and en->de both live under deu_Latn). The per-record source
+    text stays in `source_doc`, so any per-direction split happens downstream.
+    """
     t = safe_name(tgt_lang) or "tgt"
-    return f"{s}-{t}.jsonl"
+    return f"{t}.jsonl"
 
 
 PRICING_PROFILES = {
@@ -562,7 +596,7 @@ class LLMCache:
 
 def run_rounds(client, model, src_lang, tgt_lang, source, k, context_win,
                system_prompt, temperature, cache, dry_run,
-               request_options=None):
+               request_options=None, src_known=True):
     """Run k refinement rounds for one item.
 
     Returns (hypos, round_usage_records, terminal_error, terminal_kind).
@@ -576,7 +610,8 @@ def run_rounds(client, model, src_lang, tgt_lang, source, k, context_win,
     terminal_kind = None
     for round_idx in range(k):
         messages = build_messages(
-            src_lang, tgt_lang, source, hypos, context_win, system_prompt)
+            src_lang, tgt_lang, source, hypos, context_win, system_prompt,
+            src_known)
         if dry_run:
             hypo = ""
             usage = {}
@@ -640,14 +675,14 @@ def parse_args():
                    help="input jsonl path")
     p.add_argument("--results-dir", default="results",
                    help="output directory; results are written under a per-model "
-                        "subdir <results-dir>/<model>/<src>-<tgt>.jsonl")
+                        "subdir <results-dir>/<model>/<tgt>.jsonl")
     p.add_argument("--langs", default="zh_CN",
                    help="wanted target languages (raw tgt_lang codes, comma-separated, "
                         "e.g. zh_CN,deu_Latn); default = zh_CN (Chinese); "
                         "pass 'all' to process every language")
     p.add_argument("--model", default="gpt-4o-mini",
-                   help="OpenAI model name (e.g. gpt-4o, gpt-4o-mini, gpt-4.1)")
-    p.add_argument("--temperature", type=float, default=0.0)
+                   help="OpenAI model name (e.g. gpt-4o-mini, gpt-5.5, gpt-4o)")
+    p.add_argument("--temperature", type=float, default=1.0)
     p.add_argument("--reasoning-effort", default="",
                    help="optional reasoning control for compatible providers "
                         "(e.g. minimal, low, medium, high)")
@@ -658,7 +693,7 @@ def parse_args():
     p.add_argument("--context-win", type=int, default=1,
                    help="how many previous rounds the model sees when refining "
                         "(default 1 = only the last round)")
-    p.add_argument("--concurrency", type=int, default=16,
+    p.add_argument("--concurrency", type=int, default=64,
                    help="number of documents translated in parallel (threads). "
                         "Each doc's k rounds stay sequential; only different docs "
                         "run concurrently. 1 = fully sequential")
@@ -669,17 +704,35 @@ def parse_args():
                    "Follow the instruction and output only the translation, "
                    "with no explanations.",
                    help="system prompt (empty string = no system message)")
+    p.add_argument("--src-lang", default="",
+                   help="fallback source language name for the prompt. A source "
+                        "PARSED from each record's instruction ('Translate from "
+                        "X to Y') always wins; this value is used only when none "
+                        "can be parsed. Default empty = omit the source language "
+                        "when it cannot be established (plan 1).")
+    p.add_argument("--with-instruction", action=argparse.BooleanOptionalAction,
+                   default=True,
+                   help="fold each record's dataset 'instruction' into the system "
+                        "message (default on; trivial 'Translate from X to Y' "
+                        "instructions are skipped). User-turn templates are "
+                        "unchanged. Pass --no-with-instruction to disable.")
     p.add_argument("--limit", type=int, default=0,
                    help="max items to process (0 = no limit, for debugging)")
     p.add_argument("--resume", action="store_true",
                    help="skip doc_id values already present in the output files")
-    p.add_argument("--skip-multimodal", action="store_true", default=True,
-                   help="skip multimodal samples (on by default; v1 is text-only)")
+    p.add_argument("--skip-multimodal", action=argparse.BooleanOptionalAction,
+                   default=False,
+                   help="skip multimodal samples (default off = include them; "
+                        "only their source_doc text is translated, the media at "
+                        "multimodal_input_path is not read). Pass --skip-multimodal "
+                        "to exclude them.")
     p.add_argument("--dry-run", action="store_true",
                    help="only parse and build prompts, do not call GPT (hypothesis empty)")
     p.add_argument("--cache-path", default="",
                    help="prompt-level cache file (default <results-dir>/.gpt_cache.jsonl)")
-    p.add_argument("--no-cache", action="store_true", help="disable the prompt-level cache")
+    p.add_argument("--cache", action=argparse.BooleanOptionalAction, default=False,
+                   help="enable the prompt-level cache (default off / no-cache); "
+                        "pass --cache to turn it on, --no-cache to keep it off")
     p.add_argument("--write-order", choices=("completion", "input"),
                    default="completion",
                    help="write finished docs as they complete or preserve input order")
@@ -711,7 +764,7 @@ def main():
         sys.exit(f"input file not found: {in_path}")
 
     # scope outputs by model so different models never share/clobber files:
-    # <results-dir>/<model>/<src>-<tgt>.jsonl (default cache lives here too)
+    # <results-dir>/<model>/<tgt>.jsonl (default cache lives here too)
     results_dir = Path(args.results_dir) / safe_name(args.model)
     results_dir.mkdir(parents=True, exist_ok=True)
 
@@ -806,15 +859,15 @@ def main():
         failure_fh = failure_log_path.open("a", encoding="utf-8")
 
     cache_path = Path(args.cache_path) if args.cache_path else results_dir / ".gpt_cache.jsonl"
-    cache = LLMCache(cache_path, enabled=not args.no_cache and not args.dry_run)
+    cache = LLMCache(cache_path, enabled=args.cache and not args.dry_run)
     if cache.enabled:
         print(f"cache: {cache_path} (loaded {cache.loaded_entries} entries)")
 
     out_handles = {}
     done_ids = {}
 
-    def get_handle(src_code, tgt_lang):
-        fname = pair_filename(src_code, tgt_lang)
+    def get_handle(tgt_lang):
+        fname = tgt_filename(tgt_lang)
         if fname not in out_handles:
             fpath = results_dir / fname
             if args.resume:
@@ -841,6 +894,7 @@ def main():
             doc_id = item.get("doc_id")
             instruction = item.get("instruction") or ""
             source_doc = item.get("source_doc") or ""
+            src_field = item.get("src_lang") or ""
 
             # 2) filter target languages (exact match on the raw code)
             if want and tgt_lang not in want:
@@ -852,18 +906,45 @@ def main():
                 continue
             n_kept += 1
 
-            # 3)+4) resolve source/target language names for the prompts
-            _, src_raw = transform_instruction(instruction)
-            src_code = canon_src(src_raw)  # source is overwhelmingly en
-            fname, fh = get_handle(src_code, tgt_lang)
+            # 3)+4) resolve source/target language names for the prompts.
+            # Source name precedence:
+            #   1) the record's own src_lang field (authoritative, e.g. eng_Latn)
+            #   2) a source PARSED from the instruction ('Translate from X to Y')
+            #   3) the --src-lang fallback
+            #   4) otherwise unknown -> omit the source from the prompt (plan 1)
+            new_instruction, src_raw = transform_instruction(instruction)
+            if src_field:
+                src_name = lang_name(src_field)
+                src_known = True
+            elif src_raw is not None:
+                src_name = lang_name(src_raw)
+                src_known = True
+            elif args.src_lang:
+                src_name = args.src_lang
+                src_known = True
+            else:
+                src_name = ""
+                src_known = False
+            fname, fh = get_handle(tgt_lang)
             if args.resume and doc_id in done_ids.get(fname, set()):
                 n_skip += 1
                 continue
 
+            # For class-A "Translate from X to Y" instructions, save the readable
+            # name-resolved form ("from English to Tunisian Arabic"); richer
+            # B/C/D/E instructions are kept verbatim.
+            saved_instruction = (new_instruction
+                                 if _TRIVIAL_INSTR.match(instruction.strip())
+                                 else instruction)
+
             work.append({
                 "work_idx": len(work),
                 "doc_id": doc_id, "tgt_lang": tgt_lang, "source_doc": source_doc,
-                "src_name": lang_name(src_code), "tgt_name": lang_name(tgt_lang),
+                "instruction": saved_instruction,
+                "src_lang": src_field,
+                "src_name": src_name, "tgt_name": lang_name(tgt_lang),
+                "src_known": src_known,
+                "system": compose_system(args.system, instruction, args.with_instruction),
                 "fh": fh,
             })
             if args.limit and len(work) >= args.limit:
@@ -895,17 +976,20 @@ def main():
             it["source_doc"],
             args.k,
             args.context_win,
-            args.system,
+            it["system"],
             args.temperature,
             cache,
             args.dry_run,
             request_options=request_options,
+            src_known=it["src_known"],
         )
         return it, hypos, round_usage, terminal_error, terminal_kind
 
     def write_result(it, hypos):
-        out_rec = {"doc_id": it["doc_id"], "tgt_lang": it["tgt_lang"],
-                   "source_doc": it["source_doc"]}
+        out_rec = {"doc_id": it["doc_id"],
+                   "src_lang": it["src_lang"], "tgt_lang": it["tgt_lang"],
+                   "source_doc": it["source_doc"],
+                   "instruction": it["instruction"]}
         for i, h in enumerate(hypos):
             out_rec[f"hypo_{i}"] = h
         out_rec["hypothesis"] = hypos[-1] if hypos else ""

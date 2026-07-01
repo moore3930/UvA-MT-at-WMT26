@@ -45,8 +45,57 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Reuse the provider-agnostic plumbing (language map + prompt cache) from
 # sequential_scaling.py, but get the LLM client/call from util/openai_client.py
 # so the judge talks to OpenAI GPT instead of MetaGen.
-from sequential_scaling import lang_name, LLMCache
+from sequential_scaling import lang_name, LLMCache, transform_instruction
 from util.openai_client import build_client, call_openai
+
+
+def src_lang_for_record(rec: dict, fallback: str = "") -> str:
+    """Source language NAME for a judge prompt, or "" when it is unknown.
+
+    Precedence (mirrors the translation side):
+      1) the record's own src_lang field (authoritative, e.g. eng_Latn)
+      2) a source PARSED from the instruction ('Translate from X to Y')
+      3) the fallback (--src-lang)
+      4) otherwise "" so the 'Source language:' line is omitted (plan 1).
+    """
+    src_field = rec.get("src_lang")
+    if src_field:
+        return lang_name(src_field)
+    _, src_raw = transform_instruction(rec.get("instruction") or "")
+    if src_raw is not None:
+        return lang_name(src_raw)
+    return fallback
+
+
+def _is_trivial_instruction(instr: str) -> bool:
+    """True for a bare 'Translate from X to Y[.]' directive (no extra guidance).
+
+    Robust to the name-resolved form ('Translate from English to Chinese
+    (Simplified).') that _TRIVIAL_INSTR from the translation side would miss:
+    such a directive carries no requirement beyond the from/to already implied,
+    so it is not worth injecting into the judge prompt.
+    """
+    s = (instr or "").strip()
+    if not s:
+        return True
+    if not s.lower().startswith("translate from"):
+        return False
+    body = s.rstrip(".").strip()
+    return "." not in body  # a sentence break means there is extra guidance
+
+
+def instruction_for_record(rec: dict, enable: bool = True) -> str:
+    """The task-specific instruction to inject into the judge prompt, or "".
+
+    Empty and trivial 'Translate from X to Y' instructions are dropped; only
+    substantive guidance (style, formatting, gender, terminology, ...) is kept.
+    """
+    if not enable:
+        return ""
+    instr = (rec.get("instruction") or "").strip()
+    if not instr or _is_trivial_instruction(instr):
+        return ""
+    return instr
 
 
 # ===========================================================================
@@ -90,11 +139,17 @@ JUDGE_SYSTEM = (
     "ignore their order or length."
 )
 
+# The source-language line is a {src_line} slot: filled with "Source language:
+# X\n" when the source is known, or left empty (plan 1) when it is not, so the
+# judge is never told a source language we cannot establish.
+# {instruction_block} is empty, or a task-specific instruction the translations
+# were asked to follow, so the judge also weighs how well each candidate obeys it.
 JUDGE_TEMPLATE = (
     "Compare two candidate translations and decide which is better.\n\n"
-    "Source language: {src_lang}\n"
+    "{src_line}"
     "Target language: {tgt_lang}\n\n"
     "Judge against this rubric (earlier criteria matter more):\n{rubric}\n\n"
+    "{instruction_block}"
     "=== SOURCE ===\n{source}\n\n"
     "=== TRANSLATION A ===\n{trans_a}\n\n"
     "=== TRANSLATION B ===\n{trans_b}\n\n"
@@ -105,9 +160,10 @@ JUDGE_TEMPLATE = (
 
 JUDGE_TEMPLATE_JSON_ONLY = (
     "Compare two candidate translations and decide which is better.\n\n"
-    "Source language: {src_lang}\n"
+    "{src_line}"
     "Target language: {tgt_lang}\n\n"
     "Judge against this rubric (earlier criteria matter more):\n{rubric}\n\n"
+    "{instruction_block}"
     "=== SOURCE ===\n{source}\n\n"
     "=== TRANSLATION A ===\n{trans_a}\n\n"
     "=== TRANSLATION B ===\n{trans_b}\n\n"
@@ -117,11 +173,24 @@ JUDGE_TEMPLATE_JSON_ONLY = (
 
 
 def build_judge_messages(source, trans_a, trans_b, src_lang, tgt_lang,
-                         rubric_text, require_reason=True):
-    """Assemble the [system, user] messages for one A-vs-B comparison."""
+                         rubric_text, require_reason=True, instruction=""):
+    """Assemble the [system, user] messages for one A-vs-B comparison.
+
+    A falsy src_lang omits the 'Source language:' line entirely (plan 1).
+    A non-empty instruction is injected so the judge also weighs how faithfully
+    each candidate follows that task-specific requirement.
+    """
     template = JUDGE_TEMPLATE if require_reason else JUDGE_TEMPLATE_JSON_ONLY
+    src_line = f"Source language: {src_lang}\n" if src_lang else ""
+    instruction_block = ""
+    if instruction:
+        instruction_block = (
+            "The translations were produced under this task-specific "
+            "instruction; also judge how faithfully each candidate follows "
+            "it:\n" + instruction + "\n\n")
     user = template.format(
-        src_lang=src_lang, tgt_lang=tgt_lang, rubric=rubric_text,
+        src_line=src_line, tgt_lang=tgt_lang, rubric=rubric_text,
+        instruction_block=instruction_block,
         source=source, trans_a=trans_a, trans_b=trans_b)
     return [{"role": "system", "content": JUDGE_SYSTEM},
             {"role": "user", "content": user}]
@@ -149,10 +218,11 @@ def parse_verdict(text: str) -> dict:
 # ===========================================================================
 def _judge_once(client, model, source, cand_a, cand_b, src_lang, tgt_lang,
                 rubric_text, temperature, cache, request_options=None,
-                require_reason=True):
+                require_reason=True, instruction=""):
     """Judge with a fixed A/B assignment; return parsed verdict dict."""
     messages = build_judge_messages(source, cand_a, cand_b, src_lang, tgt_lang,
-                                    rubric_text, require_reason=require_reason)
+                                    rubric_text, require_reason=require_reason,
+                                    instruction=instruction)
     key_payload = {
         "messages": messages,
         "request_options": request_options or {},
@@ -186,7 +256,7 @@ def _judge_once(client, model, source, cand_a, cand_b, src_lang, tgt_lang,
 
 def judge_pair(client, model, source, trans_a, trans_b, src_lang, tgt_lang,
                rubric_text, temperature, cache, swap=True,
-               request_options=None, require_reason=True):
+               request_options=None, require_reason=True, instruction=""):
     """Compare trans_a vs trans_b; return a normalized verdict.
 
     With swap=True, judge both orders (A,B) and (B,A) to cancel position bias:
@@ -197,7 +267,7 @@ def judge_pair(client, model, source, trans_a, trans_b, src_lang, tgt_lang,
     v1 = _judge_once(client, model, source, trans_a, trans_b,
                      src_lang, tgt_lang, rubric_text, temperature, cache,
                      request_options=request_options,
-                     require_reason=require_reason)
+                     require_reason=require_reason, instruction=instruction)
     votes = {"order_ab": v1["winner"]}
     reasons = {"order_ab": v1["reason"]}
 
@@ -209,7 +279,7 @@ def judge_pair(client, model, source, trans_a, trans_b, src_lang, tgt_lang,
     v2 = _judge_once(client, model, source, trans_b, trans_a,
                      src_lang, tgt_lang, rubric_text, temperature, cache,
                      request_options=request_options,
-                     require_reason=require_reason)
+                     require_reason=require_reason, instruction=instruction)
     remap = {"A": "B", "B": "A", "tie": "tie"}  # swapped -> original
     v2_norm = remap[v2["winner"]]
     votes["order_ba"] = v2_norm
@@ -253,11 +323,21 @@ def parse_args():
     p.add_argument("--out", default="", help="output jsonl (default <a>.judge.jsonl)")
     p.add_argument("--model", default="gpt-4o-mini", help="OpenAI judge model")
     p.add_argument("--temperature", type=float, default=0.0)
-    p.add_argument("--src-lang", default="English", help="source language name")
+    p.add_argument("--src-lang", default="",
+                   help="fallback source language name. A source PARSED from each "
+                        "record's instruction ('Translate from X to Y') always "
+                        "wins; this value is used only when none can be parsed. "
+                        "Default empty = omit the 'Source language:' line when it "
+                        "cannot be established (plan 1).")
     p.add_argument("--tgt-lang", default="",
                    help="target language name (default: inferred from tgt_lang field)")
     p.add_argument("--rubric-file", default="",
                    help="file whose text replaces the default rubric block")
+    p.add_argument("--with-instruction", action=argparse.BooleanOptionalAction,
+                   default=True,
+                   help="inject each record's task-specific instruction into the "
+                        "judge prompt (default on; trivial 'Translate from X to Y' "
+                        "instructions are skipped).")
     p.add_argument("--no-swap", action="store_true",
                    help="judge each pair once (faster, but position-biased)")
     p.add_argument("--concurrency", type=int, default=16)
@@ -318,8 +398,11 @@ def main():
             continue
         source = ra.get(args.source_field) or rb.get(args.source_field) or ""
         tgt = args.tgt_lang or lang_name(ra.get("tgt_lang") or "")
+        src = src_lang_for_record(ra, args.src_lang)
+        instr = instruction_for_record(ra, args.with_instruction)
         work.append({"doc_id": doc_id, "source": source, "trans_a": ta,
-                     "trans_b": tb, "tgt_lang": tgt})
+                     "trans_b": tb, "tgt_lang": tgt, "src_lang": src,
+                     "instruction": instr})
         if args.limit and len(work) >= args.limit:
             break
     print(f"to judge: {len(work)} pairs")
@@ -336,10 +419,11 @@ def main():
     def worker(it):
         verdict = judge_pair(
             client_for_thread(), args.model, it["source"], it["trans_a"],
-            it["trans_b"], args.src_lang, it["tgt_lang"], rubric_text,
+            it["trans_b"], it["src_lang"], it["tgt_lang"], rubric_text,
             args.temperature, cache, swap=not args.no_swap,
             request_options=request_options,
-            require_reason=not args.json_only)
+            require_reason=not args.json_only,
+            instruction=it["instruction"])
         return it, verdict
 
     counts = {"A": 0, "B": 0, "tie": 0}

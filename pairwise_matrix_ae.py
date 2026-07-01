@@ -113,8 +113,8 @@ def main():
     print(f"processed {n_doc} docs")
     pointwise_scores = predictor.predict(to_score)
 
-    for examples in pointwise_scores:
-        docs[examples["doc_id"]]["scores"] = [examples["prediction"] for examples in pointwise_scores]
+    for ex in pointwise_scores:
+        docs[ex["doc_id"]].setdefault("scores", []).append(ex["prediction"])
     
     for doc_id, d in docs.items():
         mat, K = d["mat"], d["K"]
