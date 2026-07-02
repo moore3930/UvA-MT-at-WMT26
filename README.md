@@ -72,6 +72,49 @@ We treat the judge as a tunable system with two main knobs:
 
 > The human win/loss matrix is **not persisted**: `coherency_eval.py` rebuilds it on the fly from the `score_i` in `dev/<pair>.jsonl` at any threshold, so saving it would just be a redundant artifact.
 
+### Important repo paths
+
+**Core Python entrypoints**
+
+- `dev/extract_dev.py` — build the shared dev set from WMT25 human-eval data
+- `sequential_scaling.py` — generate translation candidates (`hypo_0..hypo_k`)
+- `pairwise_matrix.py` — judge one candidate pool and write an 8-way matrix
+- `pairwise_matrix_two_best_tournament.py` — judge only the cross-model winner-vs-opposite-pool comparisons for the two-best merge
+- `coherency_eval.py` — compare LLM matrices against human scores
+- `util/contrastive_judge.py` — shared pairwise judge prompt, rubric, parsing, and AB/BA consistency logic
+
+**Judge runner scripts**
+
+- `.local_scripts/generation/judge/run_judge_lang.sh` — run `pairwise_matrix.py` for one target language in `results/<model>/<lang>.jsonl`
+- `.local_scripts/generation/judge/run_judge_all.sh` — batch judge all configured languages
+- `.local_scripts/generation/judge/run_two_best_tournament_lang.sh` — run the two-best cross-model tournament for one language
+- `.local_scripts/generation/judge/run_two_best_tournament_all.sh` — batch the two-best cross-model tournament
+- `.local_scripts/generation/judge/run_merged_lowthink_lang.sh` — run the low-thinking merged judge for one language
+- `.local_scripts/generation/judge/run_merged_lowthink_all.sh` — batch the low-thinking merged judge
+- `.local_scripts/generation/judge/export_judged_results.py` — join matrix outputs back onto original result rows
+- `.local_scripts/generation/judge/estimate_judge_cost.py` — estimate judge-call cost locally from real inputs
+
+**Legacy / focused judge helpers**
+
+- `.local_scripts/gemini/run_judge.sh` — older Gemini judge wrapper around `pairwise_matrix.py`
+- `.local_scripts/gemini/low_thinking_en_ru/run_judge.sh` — focused low-thinking Gemini judge setup for `en-ru`
+
+**Final-submission pipelines**
+
+- `final_submission/run_final_submission_pipeline.sh` — single-model final export pipeline with structural mask + selection
+- `final_submission/run_two_best_submission_pipeline.sh` — two-model merged final export pipeline
+- `final_submission/run_wmt_alignment_check.sh` — run the vendored WMT alignment checker on source/translation files
+- `final_submission/README.md` — focused notes for the final-submission folder
+
+**Final-submission helper scripts**
+
+- `final_submission/build_alignment_mask.py` — build structural validity masks from judged matrices
+- `final_submission/select_final_hypotheses.py` — choose source-ordered final hypotheses with fallback logic
+- `final_submission/export_two_best_results.py` — export the two-best merged preliminary final file, mask, and fix report
+- `final_submission/make_submission_jsonl.py` — project the rich preliminary file to the thin WMT submission format
+- `final_submission/check_submission_tgt_lang.py` — verify `doc_id -> tgt_lang` against the blindset
+- `final_submission/report_judge_disagreement.py` — print judge position-disagreement tables from matrix dirs
+
 ### Directory convention (experiment isolation)
 
 ```
@@ -128,6 +171,12 @@ python3 sequential_scaling.py --langs zh_CN --limit 5 --dry-run
 Common flags: `--input` (input jsonl; defaults to a hardcoded absolute path to `wmt26_genmt_blindset.jsonl`, so pass it explicitly), `--results-dir` (output dir, default `results`), `--langs` (target langs, comma-separated or `all`), `--model`, `-k` (rounds), `--context-win` (how many prior rounds to look back when refining), `--concurrency`, `--resume` (skip already-done doc_ids), `--limit`, `--dry-run`, `--no-cache`.
 Output: `results/<src>-<tgt>.jsonl` (e.g. `results/en-zh_CN.jsonl`), each line with `hypo_0..hypo_{k-1}`.
 
+Convenience wrappers:
+
+- `.local_scripts/gemini/generation/run_generation.sh`
+- `.local_scripts/gemini/generation/generate_lang.sh`
+- `.local_scripts/gemini/generation/submit_all_slurm.sh`
+
 ### `pairwise_matrix.py` — LLM pairwise judge → win/loss matrix
 
 Reads a jsonl with `hypo_0..hypo_{K-1}`, has the LLM judge every **ordered pair** of an item's translations, and writes a directed K×K matrix (both directions judged independently, exposing position bias).
@@ -151,6 +200,30 @@ python3 pairwise_matrix.py --in dev/en-zh.jsonl --model gpt-4o-mini --exp tmp --
 
 Common flags: `--in` (required, jsonl with hypos), `--model`, `--exp`, `--rubric-file` (swap judge prompt), `--concurrency` (default 32), `--cache-path`, `--no-cache`, `--no-log`, `--limit`.
 Default outputs: `<in_dir>/<model>/<exp>/<pair>-llm-matrix.jsonl`, cache under `cache/`, logs under `log/` (both auto-created).
+
+Convenience wrappers:
+
+- `.local_scripts/generation/judge/run_judge_lang.sh`
+- `.local_scripts/generation/judge/run_judge_all.sh`
+- `.local_scripts/gemini/run_judge.sh`
+- `.local_scripts/gemini/low_thinking_en_ru/run_judge.sh`
+
+### `pairwise_matrix_two_best_tournament.py` — cross-model winner tournament for the two-best merge
+
+Reads the two original 8-hypothesis result pools plus their already-computed per-model matrices, then judges only the winner-vs-opposite-pool comparisons needed to decide which model's best candidate should represent the merged pair.
+
+```bash
+# One language, using the default pair gemini-3.5-flash vs gpt-final
+.local_scripts/generation/judge/run_two_best_tournament_lang.sh arz
+
+# One language, but only first 20 docs
+.local_scripts/generation/judge/run_two_best_tournament_lang.sh arz --limit 20
+```
+
+Common shell entrypoints:
+
+- `.local_scripts/generation/judge/run_two_best_tournament_lang.sh`
+- `.local_scripts/generation/judge/run_two_best_tournament_all.sh`
 
 ### `coherency_eval.py` — LLM matrix vs. human scores
 
@@ -183,6 +256,25 @@ python3 coherency_eval.py --dev dev/en-zh.jsonl \
 
 Common flags: `--model`, `--exp`, `--pairs` (default `en-zh,en-ru`), `--thresholds`, `--dir` (shared-gold dir, defaults to the `dev/` next to the script), `--dump/--csv/--tsv` (explicit paths override the auto-export).
 Default outputs: `dev/<model>/<exp>/coherency.jsonl` + `coherency_sweep.{csv,tsv}`, plus metrics and the threshold sweep printed to the console.
+
+Convenience wrappers:
+
+- `.local_scripts/gemini/eval_coherency.sh`
+- `.local_scripts/gemini/low_thinking_en_ru/eval_coherency.sh`
+
+### `final_submission/` — end-to-end export pipelines
+
+The repo has two final-export shell pipelines:
+
+- `final_submission/run_final_submission_pipeline.sh` — single-model judged export
+- `final_submission/run_two_best_submission_pipeline.sh` — two-model merged export
+
+Typical outputs live under `final_submission/out/`, and the pipelines write:
+
+- a source-aligned preliminary final JSONL
+- a thin WMT `submission.jsonl`
+- audit reports under `final_submission/out/.../reports/`
+- WMT alignment-check outputs via `final_submission/run_wmt_alignment_check.sh`
 
 ---
 

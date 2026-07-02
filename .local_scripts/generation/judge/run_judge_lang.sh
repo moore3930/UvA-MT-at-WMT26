@@ -20,6 +20,7 @@ Environment overrides:
   JUDGE_TEMPERATURE        default: 0.0
   JUDGE_CONCURRENCY        default: 32
   JUDGE_JSON_ONLY          default: 1
+  JUDGE_STRUCTURED_OUTPUT  default: 0
   JUDGE_REQUEST_TIMEOUT    default: 180
   JUDGE_STALL_REPORT_SECONDS default: 60
   RESULT_FILE_PREFIX       default: empty
@@ -70,6 +71,10 @@ fi
 
 if [[ "${JUDGE_JSON_ONLY}" == "1" ]]; then
   PAIRWISE_ARGS+=(--json-only)
+fi
+
+if [[ "${JUDGE_STRUCTURED_OUTPUT}" == "1" ]]; then
+  PAIRWISE_ARGS+=(--structured-output-winner-only)
 fi
 
 "${PYTHON_BIN}" "${REPO_ROOT}/pairwise_matrix.py" "${PAIRWISE_ARGS[@]}" "$@"

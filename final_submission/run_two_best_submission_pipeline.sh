@@ -9,6 +9,7 @@ SOURCE="${REPO_ROOT}/wmt26_genmt_blindset_filter_parse.jsonl"
 MODEL_A="gemini-3.5-flash"
 MODEL_B="gpt-final"
 JUDGE_MODEL="gemini-2.5-flash"
+EXPERIMENT_TAG=""
 PAIR_NAME=""
 WORK_DIR=""
 LANGS="all"
@@ -29,6 +30,7 @@ Options:
   --model-a NAME          default: ${MODEL_A}
   --model-b NAME          default: ${MODEL_B}
   --judge-model NAME      default: ${JUDGE_MODEL}
+  --experiment-tag NAME   use experiment outputs instead of legacy artifacts
   --pair-name NAME        default: <model-a>__<model-b>
   --work-dir DIR          output working directory
                           default: final_submission/out/two-best/<pair-name>
@@ -45,6 +47,7 @@ while [[ $# -gt 0 ]]; do
     --model-a) MODEL_A="$2"; shift 2 ;;
     --model-b) MODEL_B="$2"; shift 2 ;;
     --judge-model) JUDGE_MODEL="$2"; shift 2 ;;
+    --experiment-tag) EXPERIMENT_TAG="$2"; shift 2 ;;
     --pair-name) PAIR_NAME="$2"; shift 2 ;;
     --work-dir) WORK_DIR="$2"; shift 2 ;;
     --source) SOURCE="$2"; shift 2 ;;
@@ -60,14 +63,25 @@ if [[ -z "${PAIR_NAME}" ]]; then
 fi
 
 SOURCE="$(cd "$(dirname "${SOURCE}")" && pwd)/$(basename "${SOURCE}")"
-CROSS_DIR="${REPO_ROOT}/results/${JUDGE_MODEL}/artifacts/two-best/${PAIR_NAME}/cross-matrix"
 MODEL_A_RESULTS_DIR="${REPO_ROOT}/results/${MODEL_A}"
 MODEL_B_RESULTS_DIR="${REPO_ROOT}/results/${MODEL_B}"
-MODEL_A_MATRIX_DIR="${REPO_ROOT}/results/${JUDGE_MODEL}/artifacts/${MODEL_A}/matrix"
-MODEL_B_MATRIX_DIR="${REPO_ROOT}/results/${JUDGE_MODEL}/artifacts/${MODEL_B}/matrix"
+
+if [[ -n "${EXPERIMENT_TAG}" ]]; then
+  CROSS_DIR="${REPO_ROOT}/results/${JUDGE_MODEL}/experiments/two-best/${PAIR_NAME}_${EXPERIMENT_TAG}/cross-matrix"
+  MODEL_A_MATRIX_DIR="${REPO_ROOT}/results/${JUDGE_MODEL}/experiments/${MODEL_A}_${EXPERIMENT_TAG}/matrix"
+  MODEL_B_MATRIX_DIR="${REPO_ROOT}/results/${JUDGE_MODEL}/experiments/${MODEL_B}_${EXPERIMENT_TAG}/matrix"
+else
+  CROSS_DIR="${REPO_ROOT}/results/${JUDGE_MODEL}/artifacts/two-best/${PAIR_NAME}/cross-matrix"
+  MODEL_A_MATRIX_DIR="${REPO_ROOT}/results/${JUDGE_MODEL}/artifacts/${MODEL_A}/matrix"
+  MODEL_B_MATRIX_DIR="${REPO_ROOT}/results/${JUDGE_MODEL}/artifacts/${MODEL_B}/matrix"
+fi
 
 if [[ -z "${WORK_DIR}" ]]; then
-  WORK_DIR="${REPO_ROOT}/final_submission/out/two-best/${PAIR_NAME}"
+  if [[ -n "${EXPERIMENT_TAG}" ]]; then
+    WORK_DIR="${REPO_ROOT}/final_submission/out/two-best/${PAIR_NAME}_${EXPERIMENT_TAG}"
+  else
+    WORK_DIR="${REPO_ROOT}/final_submission/out/two-best/${PAIR_NAME}"
+  fi
 fi
 WORK_DIR="$(mkdir -p "${WORK_DIR}" && cd "${WORK_DIR}" && pwd)"
 REPORT_DIR="${WORK_DIR}/reports"
@@ -88,6 +102,7 @@ echo "=================================================="
 echo " model A         : ${MODEL_A}"
 echo " model B         : ${MODEL_B}"
 echo " judge model     : ${JUDGE_MODEL}"
+echo " experiment tag  : ${EXPERIMENT_TAG:-<legacy-artifacts>}"
 echo " pair name       : ${PAIR_NAME}"
 echo " cross dir       : ${CROSS_DIR}"
 echo " model A results : ${MODEL_A_RESULTS_DIR}"

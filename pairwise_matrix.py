@@ -124,6 +124,14 @@ def parse_args():
                         "seconds (default: 60)")
     p.add_argument("--cache-path", default="",
                    help="default <out_dir>/cache/<stem>.cache.jsonl")
+    p.add_argument(
+        "--structured-output-winner-only",
+        action="store_true",
+        help=(
+            "request schema-constrained JSON output with only "
+            '{"winner": "A" | "B" | "tie"}'
+        ),
+    )
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--no-log", action="store_true",
                    help="do not tee console output to <out_dir>/log/<stem>.log")
@@ -171,6 +179,24 @@ def main():
     request_options = {}
     if args.reasoning_effort:
         request_options["reasoning_effort"] = args.reasoning_effort
+    if args.structured_output_winner_only:
+        request_options["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "judge_winner",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "winner": {
+                            "type": "string",
+                            "enum": ["A", "B", "tie"],
+                        }
+                    },
+                    "required": ["winner"],
+                    "additionalProperties": False,
+                },
+            },
+        }
     if args.request_timeout and args.request_timeout > 0:
         request_options["timeout"] = args.request_timeout
     if not request_options:

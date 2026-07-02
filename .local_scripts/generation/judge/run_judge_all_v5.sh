@@ -2,69 +2,46 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 source "${SCRIPT_DIR}/lib.sh"
 
 JOBS=1
-LANGS=()
-PIDS=()
-PLANG=()
-INTERRUPTED=0
-
-cleanup_children() {
-  local sig="${1:-TERM}"
-  local pid
-  if [[ ${#PIDS[@]} -eq 0 ]]; then
-    return 0
-  fi
-  echo
-  echo "[cleanup] stopping ${#PIDS[@]} in-flight language job(s) with SIG${sig}" >&2
-  for pid in "${PIDS[@]}"; do
-    if kill -0 "${pid}" 2>/dev/null; then
-      kill "-${sig}" "${pid}" 2>/dev/null || true
-    fi
-  done
-  for pid in "${PIDS[@]}"; do
-    wait "${pid}" 2>/dev/null || true
-  done
-}
-
-on_interrupt() {
-  local sig="$1"
-  INTERRUPTED=1
-  trap - INT TERM
-  cleanup_children "${sig}"
-  exit 130
-}
-
-trap 'on_interrupt INT' INT
-trap 'on_interrupt TERM' TERM
+LANGS=(
+  arz_Arab bel_Cyrl ces_Latn deu_Latn ekk_Latn hye_Armn ind_Latn isl_Latn
+  jpn_Jpan kaz_Cyrl kor_Hang lij_Latn lld_Latn rus_Cyrl sme_Latn tha_Thai
+  ukr_Cyrl zho_Hans zho_Hant_TW
+)
 
 usage() {
   cat <<'EOF'
 Usage:
-  .local_scripts/generation/judge/run_two_best_tournament_all.sh [options] [-- extra args...]
+  .local_scripts/generation/judge/run_judge_all_v5.sh [options] [-- extra pairwise_matrix args...]
 
-Runs the cross-model winner-only judge stage over result files under:
-  results/<MODEL_A>/ and results/<MODEL_B>/
+Runs the judge over a reduced language set using `rubric/v5.txt` and isolated
+experiment output/cache roots so the run does not clash with the default judge
+artifacts.
+
+Default language set:
+  arz_Arab bel_Cyrl ces_Latn deu_Latn ekk_Latn hye_Armn ind_Latn isl_Latn
+  jpn_Jpan kaz_Cyrl kor_Hang lij_Latn lld_Latn rus_Cyrl sme_Latn tha_Thai
+  ukr_Cyrl zho_Hans zho_Hant_TW
 
 Environment overrides:
-  MODEL_A                  default: gemini-3.5-flash
-  MODEL_B                  default: gpt-final
-  PAIR_NAME                default: <MODEL_A>__<MODEL_B>
-  TIE_WINNER_DEFAULT       default: gpt-final
+  SOURCE_MODEL             default: gpt-final
   JUDGE_MODEL              default: gemini-2.5-flash
+  EXPERIMENT_TAG           default: rubric-v5
   JUDGE_REASONING_EFFORT   default: none
   JUDGE_TEMPERATURE        default: 0.0
   JUDGE_CONCURRENCY        default: 32
   JUDGE_JSON_ONLY          default: 1
   JUDGE_STRUCTURED_OUTPUT  default: 1 (required)
-  JUDGE_MAX_FILES          default: all files
-  EXPERIMENT_TAG           default: empty (use legacy artifacts paths)
+  JUDGE_STALL_REPORT_SECONDS default: 20
+  RESULT_FILE_PREFIX       default: empty
   RESULTS_ROOT             default: results
 
 Options:
   -j N          languages run in parallel (default: 1)
-  -l "a b c"    explicit target languages to run
+  -l "a b c"    explicit target languages to run instead of the default subset
   -h            show this help
 EOF
 }
@@ -80,68 +57,45 @@ done
 shift $((OPTIND - 1))
 EXTRA=("$@")
 
-set_judge_defaults
+SOURCE_MODEL="${SOURCE_MODEL:-gpt-final}"
+JUDGE_MODEL="${JUDGE_MODEL:-gemini-2.5-flash}"
+EXPERIMENT_TAG="${EXPERIMENT_TAG:-rubric-v5}"
+JUDGE_STALL_REPORT_SECONDS="${JUDGE_STALL_REPORT_SECONDS:-20}"
 JUDGE_STRUCTURED_OUTPUT="${JUDGE_STRUCTURED_OUTPUT:-1}"
-export JUDGE_STRUCTURED_OUTPUT
+EXPERIMENT_ROOT_DEFAULT="${REPO_ROOT}/results/${JUDGE_MODEL}/experiments/${SOURCE_MODEL}_${EXPERIMENT_TAG}"
+ARTIFACT_ROOT="${ARTIFACT_ROOT:-${EXPERIMENT_ROOT_DEFAULT}}"
+CACHE_ARTIFACT_ROOT="${CACHE_ARTIFACT_ROOT:-${EXPERIMENT_ROOT_DEFAULT}}"
+JUDGED_ROOT="${JUDGED_ROOT:-${EXPERIMENT_ROOT_DEFAULT}/judged}"
+export SOURCE_MODEL JUDGE_MODEL EXPERIMENT_TAG JUDGE_STALL_REPORT_SECONDS JUDGE_STRUCTURED_OUTPUT
+export ARTIFACT_ROOT CACHE_ARTIFACT_ROOT JUDGED_ROOT
+
+set_judge_defaults
 require_structured_output
-
-MODEL_A="${MODEL_A:-gemini-3.5-flash}"
-MODEL_B="${MODEL_B:-gpt-final}"
-PAIR_NAME="${PAIR_NAME:-${MODEL_A}__${MODEL_B}}"
-EXPERIMENT_TAG="${EXPERIMENT_TAG:-}"
-INPUT_DIR_A="${REPO_ROOT}/${RESULTS_ROOT}/${MODEL_A}"
-INPUT_DIR_B="${REPO_ROOT}/${RESULTS_ROOT}/${MODEL_B}"
-
-if [[ ! -d "${INPUT_DIR_A}" ]]; then
-  echo "Missing results dir for MODEL_A: ${INPUT_DIR_A}" >&2
-  exit 1
-fi
-if [[ ! -d "${INPUT_DIR_B}" ]]; then
-  echo "Missing results dir for MODEL_B: ${INPUT_DIR_B}" >&2
-  exit 1
-fi
-
-if [[ ${#LANGS[@]} -eq 0 ]]; then
-  shopt -s nullglob
-  FILES=("${INPUT_DIR_A}"/*.jsonl)
-  shopt -u nullglob
-
-  if [[ ${#FILES[@]} -eq 0 ]]; then
-    echo "No input result files found under ${INPUT_DIR_A}" >&2
-    exit 1
-  fi
-
-  for file in "${FILES[@]}"; do
-    LANGS+=("$(basename "${file}" .jsonl)")
-  done
-fi
-
-TOTAL_FILES=${#LANGS[@]}
-MAX_FILES="${JUDGE_MAX_FILES:-0}"
-if [[ "${MAX_FILES}" =~ ^[0-9]+$ ]] && [[ "${MAX_FILES}" -gt 0 ]] && [[ "${MAX_FILES}" -lt "${TOTAL_FILES}" ]]; then
-  LANGS=("${LANGS[@]:0:${MAX_FILES}}")
-fi
 
 n=${#LANGS[@]}
 
 echo "=================================================="
-echo " model A          : ${MODEL_A}"
-echo " model B          : ${MODEL_B}"
-echo " pair name        : ${PAIR_NAME}"
+echo " source model     : ${SOURCE_MODEL}"
 echo " judge model      : ${JUDGE_MODEL}"
+echo " experiment tag   : ${EXPERIMENT_TAG}"
+echo " rubric file      : ${REPO_ROOT}/rubric/v5.txt"
 echo " reasoning effort : ${JUDGE_REASONING_EFFORT}"
 echo " temperature      : ${JUDGE_TEMPERATURE}"
 echo " judge concurrency: ${JUDGE_CONCURRENCY}"
+echo " stall seconds    : ${JUDGE_STALL_REPORT_SECONDS}"
 echo " json only        : ${JUDGE_JSON_ONLY}"
 echo " structured out   : ${JUDGE_STRUCTURED_OUTPUT}"
-echo " experiment tag   : ${EXPERIMENT_TAG:-<legacy-artifacts>}"
+echo " result prefix    : ${RESULT_FILE_PREFIX:-<empty>}"
+echo " artifact root    : ${ARTIFACT_ROOT}"
+echo " cache root       : ${CACHE_ARTIFACT_ROOT}"
+echo " judged root      : ${JUDGED_ROOT}"
 echo " parallel langs   : ${JOBS}"
 echo " target languages : ${LANGS[*]}"
 [[ ${#EXTRA[@]} -gt 0 ]] && echo " extra args       : ${EXTRA[*]}"
 echo "=================================================="
 
 build_cmd() {
-  CMD=(bash "${SCRIPT_DIR}/run_two_best_tournament_lang.sh" "$1")
+  CMD=(bash "${SCRIPT_DIR}/run_judge_lang.sh" "$1" --rubric-file "${REPO_ROOT}/rubric/v5.txt")
   CMD+=(${EXTRA[@]+"${EXTRA[@]}"})
 }
 
@@ -170,9 +124,11 @@ if [[ "${JOBS}" -le 1 ]]; then
     fi
   done
 else
-  LOGDIR="${PWD}/genlogs/judge_two_best_all"
+  LOGDIR="${PWD}/genlogs/judge_all_v5"
   mkdir -p "${LOGDIR}"
   echo "up to ${JOBS} languages in parallel; per-language logs in ${LOGDIR}/"
+  PIDS=()
+  PLANG=()
   done_count=0
 
   reap_one_finished() {
