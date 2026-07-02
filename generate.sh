@@ -22,24 +22,23 @@ CONCURRENCY=64           # documents translated in parallel (per language, --con
 JOBS=1                   # how many LANGUAGES to run in parallel (1 = sequential)
 INPUT="${SCRIPT_DIR}/wmt26_genmt_blindset_filter_parse.jsonl"   # carries a src_lang field
 
-# Target languages to run (the unique tgt_lang codes of the WMT26 eval set).
-
-LANGS2=(
-  bel_Cyrl zh_CN zho_Hant_TW cs_CZ et_EE de_DE is ind_Latn
-)
-
-LANGS=(
-  arz hye_Armn bel_Cyrl zh_CN zho_Hant_TW cs_CZ et_EE de_DE is ind_Latn
-  kaz_Cyrl ko_KR lld_Latn lij_Latn sme_Latn ru_RU tha_Thai
-  vie_Latn ukr_Cyrl jpn_Jpan deu_Latn
-)
-
 # Full tgt_lang set from tgt_lang_filter.txt (all 33 codes in the filter file).
-LANGS3=(
+LANGS=(
   arz arz_Arab bel_Cyrl ces_Latn cs cs_CZ de_AT de_CH de_DE
   de_IT deu_Latn ekk_Latn et_EE hye_Armn ind_Latn is isl_Latn jpn_Jpan
   kaz_Cyrl ko_KR kor_Hang lij_Latn lld_Latn ru ru_RU rus_Cyrl sme_Latn
   tha_Thai ukr_Cyrl vie_Latn zh_CN zho_Hans zho_Hant_TW
+)
+
+# 19 out-of-English Target languages to run (the unique tgt_lang codes of the WMT26 eval set).
+LANGS=(
+  arz_Arab bel_Cyrl ces_Latn deu_Latn ekk_Latn hye_Armn ind_Latn isl_Latn
+  jpn_Jpan kaz_Cyrl kor_Hang lij_Latn lld_Latn rus_Cyrl sme_Latn tha_Thai
+  ukr_Cyrl zho_Hans zho_Hant_TW
+)
+
+LANGS=(
+  ukr_Cyrl zho_Hans zho_Hant_TW
 )
 
 usage() {
