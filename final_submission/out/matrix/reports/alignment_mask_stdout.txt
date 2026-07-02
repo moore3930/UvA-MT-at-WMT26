@@ -1,0 +1,40 @@
+source: /home/stroshi/UvA-MT-at-WMT26/wmt26_genmt_blindset_filter_parse.jsonl
+matrix:  /home/stroshi/UvA-MT-at-WMT26/results/gemini-2.5-flash/artifacts/gpt-final/matrix
+mask:    /home/stroshi/UvA-MT-at-WMT26/final_submission/out/matrix/alignment_mask.jsonl
+languages: expected=33 actual=33
+OK   arz          rows=150 expected=150 recall=100.00% precision=100.00%
+OK   arz_Arab     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   bel_Cyrl     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   ces_Latn     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   cs           rows=1050 expected=1050 recall=100.00% precision=100.00%
+OK   cs_CZ        rows=917 expected=917 recall=100.00% precision=100.00%
+OK   de_AT        rows=319 expected=319 recall=100.00% precision=100.00%
+OK   de_CH        rows=322 expected=322 recall=100.00% precision=100.00%
+OK   de_DE        rows=2149 expected=2149 recall=100.00% precision=100.00%
+OK   de_IT        rows=2707 expected=2707 recall=100.00% precision=100.00%
+OK   deu_Latn     rows=513 expected=513 recall=100.00% precision=100.00%
+OK   ekk_Latn     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   et_EE        rows=917 expected=917 recall=100.00% precision=100.00%
+OK   hye_Armn     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   ind_Latn     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   is           rows=345 expected=345 recall=100.00% precision=100.00%
+OK   isl_Latn     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   jpn_Jpan     rows=388 expected=388 recall=100.00% precision=100.00%
+OK   kaz_Cyrl     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   ko_KR        rows=1880 expected=1880 recall=100.00% precision=100.00%
+OK   kor_Hang     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   lij_Latn     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   lld_Latn     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   ru           rows=1000 expected=1000 recall=100.00% precision=100.00%
+OK   ru_RU        rows=917 expected=917 recall=100.00% precision=100.00%
+OK   rus_Cyrl     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   sme_Latn     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   tha_Thai     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   ukr_Cyrl     rows=513 expected=513 recall=100.00% precision=100.00%
+OK   vie_Latn     rows=315 expected=315 recall=100.00% precision=100.00%
+OK   zh_CN        rows=747 expected=747 recall=100.00% precision=100.00%
+OK   zho_Hans     rows=198 expected=198 recall=100.00% precision=100.00%
+OK   zho_Hant_TW  rows=198 expected=198 recall=100.00% precision=100.00%
+OVERALL matched=18317 expected=18317 actual=18317 recall=100.00% precision=100.00%
+MASK docs=18317 best_valid=18312 best_invalid=5 no_valid=1
+wrote 18317 mask rows to /home/stroshi/UvA-MT-at-WMT26/final_submission/out/matrix/alignment_mask.jsonl

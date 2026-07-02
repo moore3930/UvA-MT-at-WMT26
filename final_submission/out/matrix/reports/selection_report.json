@@ -1,0 +1,204 @@
+{
+  "source": "/home/stroshi/UvA-MT-at-WMT26/wmt26_genmt_blindset_filter_parse.jsonl",
+  "matrix_dir": "/home/stroshi/UvA-MT-at-WMT26/results/gemini-2.5-flash/artifacts/gpt-final/matrix",
+  "mask": "/home/stroshi/UvA-MT-at-WMT26/final_submission/out/matrix/alignment_mask.jsonl",
+  "output": "/home/stroshi/UvA-MT-at-WMT26/final_submission/out/matrix/preliminary_final.jsonl",
+  "strict": true,
+  "max_fixes": 20,
+  "total_rows": 18317,
+  "written_rows": 18317,
+  "kept_count": 18312,
+  "fixed_count": 4,
+  "unfixable_count": 1,
+  "missing_matrix_row_count": 0,
+  "missing_mask_row_count": 0,
+  "unfixable_rows_preview": [
+    "vie_Latn:45730-vie_Latn"
+  ],
+  "failures": [],
+  "fix_preview": [
+    {
+      "doc_id": "08795-deu_Latn",
+      "tgt_lang": "deu_Latn",
+      "matrix_file": "deu_Latn-llm-matrix.jsonl",
+      "original_best_idx": 6,
+      "replacement_best_idx": 0,
+      "alignment_mask": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "valid_hypothesis_indices": [
+        0
+      ],
+      "scores": [
+        0,
+        -2,
+        0,
+        0,
+        -4,
+        2,
+        4,
+        0
+      ],
+      "check_kind": "html",
+      "source_metric": 8,
+      "hypothesis_metrics": [
+        8,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "doc_id": "26993-lld_Latn",
+      "tgt_lang": "lld_Latn",
+      "matrix_file": "lld_Latn-llm-matrix.jsonl",
+      "original_best_idx": 0,
+      "replacement_best_idx": 1,
+      "alignment_mask": [
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "valid_hypothesis_indices": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "scores": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "check_kind": "html",
+      "source_metric": 3,
+      "hypothesis_metrics": [
+        4,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    {
+      "doc_id": "44799-sme_Latn",
+      "tgt_lang": "sme_Latn",
+      "matrix_file": "sme_Latn-llm-matrix.jsonl",
+      "original_best_idx": 1,
+      "replacement_best_idx": 3,
+      "alignment_mask": [
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "valid_hypothesis_indices": [
+        0,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "scores": [
+        -6,
+        2,
+        0,
+        2,
+        0,
+        0,
+        0,
+        2
+      ],
+      "check_kind": "html",
+      "source_metric": 5,
+      "hypothesis_metrics": [
+        5,
+        9,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    {
+      "doc_id": "45956-vie_Latn",
+      "tgt_lang": "vie_Latn",
+      "matrix_file": "vie_Latn-llm-matrix.jsonl",
+      "original_best_idx": 7,
+      "replacement_best_idx": 1,
+      "alignment_mask": [
+        1,
+        1,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0
+      ],
+      "valid_hypothesis_indices": [
+        0,
+        1,
+        3,
+        4
+      ],
+      "scores": [
+        -12,
+        4,
+        -10,
+        4,
+        4,
+        2,
+        0,
+        8
+      ],
+      "check_kind": "html",
+      "source_metric": 5,
+      "hypothesis_metrics": [
+        5,
+        5,
+        4,
+        5,
+        5,
+        4,
+        4,
+        4
+      ]
+    }
+  ]
+}

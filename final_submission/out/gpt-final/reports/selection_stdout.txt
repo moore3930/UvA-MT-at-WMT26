@@ -1,0 +1,7 @@
+source: /home/stroshi/UvA-MT-at-WMT26/wmt26_genmt_blindset_filter_parse.jsonl
+matrix:  /home/stroshi/UvA-MT-at-WMT26/results/gemini-2.5-flash/artifacts/gpt-final/matrix
+mask:    /home/stroshi/UvA-MT-at-WMT26/final_submission/out/gpt-final/alignment_mask.jsonl
+output:  /home/stroshi/UvA-MT-at-WMT26/final_submission/out/gpt-final/preliminary_final.jsonl
+SELECTION total=18317 kept=18312 fixed=4 unfixable=1 missing_matrix=0 missing_mask=0
+WARN unfixable rows (1): vie_Latn:45730-vie_Latn
+wrote 18317 final rows to /home/stroshi/UvA-MT-at-WMT26/final_submission/out/gpt-final/preliminary_final.jsonl

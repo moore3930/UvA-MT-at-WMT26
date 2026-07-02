@@ -1,0 +1,3 @@
+1914 checked, 1914 aligned, 0 misaligned, 16403 skipped (0 missing from translation file)
+
+Wrote log to alignment.log

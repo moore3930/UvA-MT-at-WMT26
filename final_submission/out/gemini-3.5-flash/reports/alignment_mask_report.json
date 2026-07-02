@@ -1,0 +1,288 @@
+{
+  "source": "/home/stroshi/UvA-MT-at-WMT26/wmt26_genmt_blindset_filter_parse.jsonl",
+  "matrix_dir": "/home/stroshi/UvA-MT-at-WMT26/results/gemini-2.5-flash/artifacts/gemini-3.5-flash/matrix",
+  "output": "/home/stroshi/UvA-MT-at-WMT26/final_submission/out/gemini-3.5-flash/alignment_mask.jsonl",
+  "strict": true,
+  "missing_files": [],
+  "extra_files": [
+    "en-ar_AR",
+    "en-ru_RU",
+    "en-zh_CN"
+  ],
+  "malformed": [],
+  "checked_docs": 0,
+  "aligned_best_docs": 0,
+  "docs_with_invalid_best": 0,
+  "docs_with_no_valid_hypothesis": 0,
+  "kind_counts": {
+    "html": 0,
+    "json": 0,
+    "unstructured": 0
+  },
+  "per_lang": [
+    {
+      "lang": "arz",
+      "expected": 150,
+      "actual": 150,
+      "matched": 150,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "arz_Arab",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "bel_Cyrl",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "ces_Latn",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "cs",
+      "expected": 1050,
+      "actual": 1050,
+      "matched": 1050,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "cs_CZ",
+      "expected": 917,
+      "actual": 917,
+      "matched": 917,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "de_AT",
+      "expected": 319,
+      "actual": 319,
+      "matched": 319,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "de_CH",
+      "expected": 322,
+      "actual": 322,
+      "matched": 322,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "de_DE",
+      "expected": 2149,
+      "actual": 2149,
+      "matched": 2149,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "de_IT",
+      "expected": 2707,
+      "actual": 2707,
+      "matched": 2707,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "deu_Latn",
+      "expected": 513,
+      "actual": 513,
+      "matched": 513,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "ekk_Latn",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "et_EE",
+      "expected": 917,
+      "actual": 917,
+      "matched": 917,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "hye_Armn",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "ind_Latn",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "is",
+      "expected": 345,
+      "actual": 345,
+      "matched": 345,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "isl_Latn",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "jpn_Jpan",
+      "expected": 388,
+      "actual": 388,
+      "matched": 388,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "kaz_Cyrl",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "ko_KR",
+      "expected": 1880,
+      "actual": 1880,
+      "matched": 1880,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "kor_Hang",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "lij_Latn",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "lld_Latn",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "ru",
+      "expected": 1000,
+      "actual": 1000,
+      "matched": 1000,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "ru_RU",
+      "expected": 917,
+      "actual": 917,
+      "matched": 917,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "rus_Cyrl",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "sme_Latn",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "tha_Thai",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "ukr_Cyrl",
+      "expected": 513,
+      "actual": 513,
+      "matched": 513,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "vie_Latn",
+      "expected": 315,
+      "actual": 315,
+      "matched": 315,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "zh_CN",
+      "expected": 747,
+      "actual": 747,
+      "matched": 747,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "zho_Hans",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    },
+    {
+      "lang": "zho_Hant_TW",
+      "expected": 198,
+      "actual": 198,
+      "matched": 198,
+      "missing_ids": [],
+      "extra_ids": []
+    }
+  ]
+}

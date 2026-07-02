@@ -1,0 +1,4 @@
+MISALIGNED 45730-vie_Latn: html source=8 target=6
+1914 checked, 1913 aligned, 1 misaligned, 16403 skipped (0 missing from translation file)
+
+Wrote log to alignment.log
