@@ -41,7 +41,7 @@ import json
 import re
 import sys
 import threading
-from concurrent.futures import as_completed, ThreadPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 
 from sequential_scaling import lang_name, LLMCache
@@ -116,6 +116,12 @@ def parse_args():
     p.add_argument("--json-only", action="store_true",
                    help="request only the JSON winner verdict with no "
                         "free-form reason")
+    p.add_argument("--request-timeout", type=float, default=180.0,
+                   help="per-request timeout in seconds for judge API calls "
+                        "(default: 180)")
+    p.add_argument("--stall-report-seconds", type=float, default=60.0,
+                   help="emit a warning if no futures finish for this many "
+                        "seconds (default: 60)")
     p.add_argument("--cache-path", default="",
                    help="default <out_dir>/cache/<stem>.cache.jsonl")
     p.add_argument("--no-cache", action="store_true")
@@ -165,6 +171,8 @@ def main():
     request_options = {}
     if args.reasoning_effort:
         request_options["reasoning_effort"] = args.reasoning_effort
+    if args.request_timeout and args.request_timeout > 0:
+        request_options["timeout"] = args.request_timeout
     if not request_options:
         request_options = None
 
@@ -236,24 +244,48 @@ def main():
     if tasks:
         with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
             futures = {ex.submit(worker, t): t for t in tasks}
-            for fut in as_completed(futures):
-                try:
-                    (doc_id, i, j), winner = fut.result()
-                except Exception as e:  # noqa: BLE001
-                    n_fail += 1
-                    print(f"  [error] {futures[fut]}: {e}", file=sys.stderr)
-                    continue
-                mat = docs[doc_id]["mat"]
-                mat[i][j] = 1 if winner == "A" else -1 if winner == "B" else 0
-                n_done += 1
-                if n_done % 50 == 0:
+            pending = set(futures)
+            while pending:
+                done, pending = wait(
+                    pending,
+                    timeout=args.stall_report_seconds,
+                    return_when=FIRST_COMPLETED,
+                )
+                if not done:
                     if cache.enabled:
                         stats = cache.stats()
-                        print(f".. {n_done}/{len(tasks)} ordered pairs judged "
+                        print(
+                              f"  [stall] no completions for "
+                              f"{args.stall_report_seconds:g}s; "
+                              f"pending={len(pending)} "
                               f"(cache hits={stats['hits']}/{stats['lookups']}, "
-                              f"new={stats['writes']})")
+                              f"new={stats['writes']})",
+                              file=sys.stderr)
                     else:
-                        print(f".. {n_done}/{len(tasks)} ordered pairs judged")
+                        print(
+                              f"  [stall] no completions for "
+                              f"{args.stall_report_seconds:g}s; "
+                              f"pending={len(pending)}",
+                              file=sys.stderr)
+                    continue
+                for fut in done:
+                    try:
+                        (doc_id, i, j), winner = fut.result()
+                    except Exception as e:  # noqa: BLE001
+                        n_fail += 1
+                        print(f"  [error] {futures[fut]}: {e}", file=sys.stderr)
+                        continue
+                    mat = docs[doc_id]["mat"]
+                    mat[i][j] = 1 if winner == "A" else -1 if winner == "B" else 0
+                    n_done += 1
+                    if n_done % 50 == 0:
+                        if cache.enabled:
+                            stats = cache.stats()
+                            print(f".. {n_done}/{len(tasks)} ordered pairs judged "
+                                  f"(cache hits={stats['hits']}/{stats['lookups']}, "
+                                  f"new={stats['writes']})")
+                        else:
+                            print(f".. {n_done}/{len(tasks)} ordered pairs judged")
 
     # ---- phase 3: write per-doc matrices (+ direction-aware aggregates) ----
     def disagreements(mat, K):
