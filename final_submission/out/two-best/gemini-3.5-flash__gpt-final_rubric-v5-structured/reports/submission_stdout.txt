@@ -1,0 +1,3 @@
+input:  /home/stroshi/UvA-MT-at-WMT26/final_submission/out/two-best/gemini-3.5-flash__gpt-final_rubric-v5-structured/preliminary_final.jsonl
+output: /home/stroshi/UvA-MT-at-WMT26/final_submission/out/two-best/gemini-3.5-flash__gpt-final_rubric-v5-structured/submission.jsonl
+rows:   4582

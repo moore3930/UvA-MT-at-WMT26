@@ -1,0 +1,10 @@
+selected input: /home/stroshi/UvA-MT-at-WMT26/final_submission/out/two-best/gemini-3.5-flash__gpt-final_rubric-v5-structured/preliminary_final.jsonl
+older merged dir: None
+source: /home/stroshi/UvA-MT-at-WMT26/wmt26_genmt_blindset_filter_parse.jsonl
+output: /home/stroshi/UvA-MT-at-WMT26/final_submission/out/merge_two_submissions/gemini-3.5-flash__gpt-final_rubric-v5-structured/preliminary_final.jsonl
+selected languages: 19
+older languages: 14
+merged languages: 33
+selected rows: 4582
+older rows: 13735
+merged rows: 18317

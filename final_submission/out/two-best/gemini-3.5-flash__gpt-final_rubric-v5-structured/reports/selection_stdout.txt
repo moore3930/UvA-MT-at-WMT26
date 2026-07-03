@@ -1,0 +1,6 @@
+source:  /home/stroshi/UvA-MT-at-WMT26/wmt26_genmt_blindset_filter_parse.jsonl
+cross:   /home/stroshi/UvA-MT-at-WMT26/results/gemini-3.5-flash/experiments/two-best/gemini-3.5-flash__gpt-final_rubric-v5-structured/cross-matrix
+output:  /home/stroshi/UvA-MT-at-WMT26/final_submission/out/two-best/gemini-3.5-flash__gpt-final_rubric-v5-structured/preliminary_final.jsonl
+mask:    /home/stroshi/UvA-MT-at-WMT26/final_submission/out/two-best/gemini-3.5-flash__gpt-final_rubric-v5-structured/alignment_mask.jsonl
+source-filtered: /home/stroshi/UvA-MT-at-WMT26/final_submission/out/two-best/gemini-3.5-flash__gpt-final_rubric-v5-structured/source.filtered.jsonl
+TWO-BEST EXPORT total=4582 written=4582 kept=4580 selected_invalid=2 fixed=2 cross_model_fix=1 unfixable=0 no_valid=0 failures=0
