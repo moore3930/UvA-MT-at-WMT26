@@ -176,9 +176,16 @@ else
   done_count=0
 
   reap_one_finished() {
-    local wait_rc pid lang rc idx
-    wait -n || wait_rc=$?
-    wait_rc="${wait_rc:-0}"
+    local pid lang rc idx
+    # bash 3.2 (macOS default) has no `wait -n`; poll until a child exits.
+    while :; do
+      for idx in "${!PIDS[@]}"; do
+        if ! kill -0 "${PIDS[$idx]}" 2>/dev/null; then
+          break 2
+        fi
+      done
+      sleep 1
+    done
 
     for idx in "${!PIDS[@]}"; do
       pid="${PIDS[$idx]}"
@@ -197,13 +204,19 @@ else
       fi
       unset 'PIDS[idx]'
       unset 'PLANG[idx]'
-      PIDS=("${PIDS[@]}")
-      PLANG=("${PLANG[@]}")
+      # re-pack arrays; guard empty case (bash 3.2 + set -u errors on "${x[@]}")
+      if [[ "${#PIDS[@]}" -gt 0 ]]; then
+        PIDS=("${PIDS[@]}")
+        PLANG=("${PLANG[@]}")
+      else
+        PIDS=()
+        PLANG=()
+      fi
       print_running
       return 0
     done
 
-    echo "[warn] wait -n returned ${wait_rc}, but no finished job was identified" >&2
+    echo "[warn] polled but no finished job was identified" >&2
     return 1
   }
 
