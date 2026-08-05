@@ -45,7 +45,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 
 from sequential_scaling import lang_name, LLMCache
-from util.openai_client import build_client
+from util.llm_client import build_client
 from util.contrastive_judge import (
     DEFAULT_RUBRIC,
     instruction_for_record,
