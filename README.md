@@ -2,7 +2,7 @@
 
 This repo uses **WMT25 human evaluation data** as the gold standard to measure how well an **LLM pairwise judge** agrees with human ratings.
 
-> 中文版见 [`README.md`](README.md).
+> 中文版见 [`README.zh.md`](README.zh.md).
 
 ---
 
@@ -25,6 +25,30 @@ uv sync
 ```
 
 > If you prefer a lower-level pip-style install, `uv pip install -r pyproject.toml` also works, but `uv sync` is the recommended project workflow.
+
+## LLM backend & API keys
+
+The generation/judge scripts (`sequential_scaling.py`, `pairwise_matrix.py`,
+`pairwise_matrix_two_best_tournament.py`, `util/contrastive_judge.py`) all get
+their model client from a single dispatcher, `util/llm_client.py`, selected by
+the **`LLM_BACKEND`** environment variable:
+
+| `LLM_BACKEND` | Backend | Endpoint | API key (first hit wins) |
+|---|---|---|---|
+| `metagen` (default) | MetaGen via the Llama OpenAI-compatible API | `METAGEN_BASE_URL` or `https://api.llama.com/experimental/compat/openai/v1/` (needs VPN / Meta corp IP) | `--api-key`, `LLAMA_API_KEY`, `~/.llama_api_key` (starts with `LLM\|`) |
+| `openai` | Personal OpenAI (or any OpenAI-compatible proxy) | `OPENAI_BASE_URL` or OpenAI default | `--api-key`, `OPENAI_API_KEY`, `~/.openai_api_key` |
+
+```bash
+# MetaGen (default; nothing to set). Use MetaGen model names, e.g. gpt-4o-mini-genai:
+python3 pairwise_matrix.py --in dev/en-zh.jsonl --model gpt-4o-mini-genai --exp v1
+
+# Personal OpenAI. Use OpenAI model names, e.g. gpt-4o-mini:
+LLM_BACKEND=openai python3 pairwise_matrix.py --in dev/en-zh.jsonl --model gpt-4o-mini --exp v1
+```
+
+Both backends expose the same interface, so switching is just the env var — no
+code changes. Note that model names differ per backend (e.g. `gpt-4o-mini-genai`
+vs `gpt-4o-mini`), and a MetaGen key must be entitled for the model you request.
 
 ## Tests
 

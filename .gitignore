@@ -1,3 +1,6 @@
+genlogs/
+dev/
+
 __pycache__/
 bk/
 notes.md

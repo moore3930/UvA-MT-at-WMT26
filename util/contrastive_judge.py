@@ -46,7 +46,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # sequential_scaling.py, but get the LLM client/call from util/openai_client.py
 # so the judge talks to OpenAI GPT instead of MetaGen.
 from sequential_scaling import lang_name, LLMCache, transform_instruction
-from util.openai_client import build_client, call_openai
+from util.llm_client import build_client, call_openai
 
 
 def src_lang_for_record(rec: dict, fallback: str = "") -> str:

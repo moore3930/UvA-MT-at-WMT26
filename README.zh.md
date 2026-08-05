@@ -2,7 +2,7 @@
 
 本仓库用 **WMT25 人工评测数据** 作为金标,衡量 **LLM 成对裁判(pairwise judge)** 与人工打分的一致性。
 
-> English version: [`README.en.md`](README.en.md).
+> English version: [`README.md`](README.md).
 
 ---
 

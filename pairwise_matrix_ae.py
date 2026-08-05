@@ -15,18 +15,24 @@ def parse_args():
     p.add_argument("--in", dest="inp", required=True,
                    help="sequential_scaling output jsonl (with hypo_0..hypo_{K-1})")
     p.add_argument("--out", default="",
-                   help="output jsonl (default <in_dir>/<model>/<exp>/<stem>-metricx-matrix.jsonl)")
+                   help="output jsonl (default <in_dir>/<model>/<exp>/<stem>-llm-matrix.jsonl)")
     p.add_argument("--exp", default="",
                    help="experiment name; outputs go to <in_dir>/<model>/<exp>/ "
                         "(use to separate different judge prompts under a model)")
+    p.add_argument("--model", default="",
+                   help="model identifier used for the output dir level, aligning with "
+                        "pairwise_matrix.py / coherency_eval.py "
+                        "(<in_dir>/<model>/<exp>/<stem>-llm-matrix.jsonl). "
+                        "Default derived from --ae-metric (cometqe -> comet-kiwi).")
     p.add_argument("--metric_params", default={}, help="dict contains the parameters for the metric predictor")
     p.add_argument("--ae-metric",default="cometqe",choices=["metricx-24","cometqe","remedyqe"],help="which metric to use for pairwise scoring")
     p.add_argument("--scores-cache",help="json file to cache pointwise scores (default: no caching)")
     p.add_argument("--src-lang", default="English")
     p.add_argument("--tgt-lang", default="",
                    help="target language name (default: inferred from tgt_lang field)")
-    p.add_argument("--thrs", default=0.1, type=float,
-                   help="score difference threshold for win/loss/tie (default 0.1)")
+    p.add_argument("--thrs", default=0.0, type=float,
+                   help="absolute score-difference tie band for win/loss/tie "
+                        "(|score_i - score_j| <= thrs -> tie; default 0.0 = pure sign)")
     p.add_argument("--no-log", action="store_true",
                    help="do not tee console output to <out_dir>/log/<stem>.log")
     return p.parse_args()
@@ -47,16 +53,21 @@ def main():
     if not in_path.exists():
         sys.exit(f"--in not found: {in_path}")
 
+    # model identifier for the output dir level; aligns with pairwise_matrix.py /
+    # coherency_eval.py so the SAME coherency_eval.py can consume this matrix.
+    _DEFAULT_MODEL_ID = {"cometqe": "comet-kiwi", "metricx-24": "metricx-24",
+                         "remedyqe": "remedy-qe"}
+    model_id = (args.model or _DEFAULT_MODEL_ID.get(args.ae_metric, args.ae_metric)).replace("/", "_")
+
     if args.out:
         out_path = Path(args.out)
     else:
-        # outputs nest under <in_dir>/<model>/<exp>/ (exp under the model name)
-        out_dir = in_path.parent
-        if args.ae_metric:
-            out_dir = out_dir / args.ae_metric.replace("/", "_")
+        # outputs nest under <in_dir>/<model>/<exp>/ (exp under the model name),
+        # named <stem>-llm-matrix.jsonl to match pairwise_matrix.py exactly.
+        out_dir = in_path.parent / model_id
         if args.exp:
             out_dir = out_dir / args.exp
-        out_path = out_dir / f"{in_path.stem}-{args.ae_metric}-matrix.jsonl"
+        out_path = out_dir / f"{in_path.stem}-llm-matrix.jsonl"
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     #tee all console output to a log/ subfolder next to the output
@@ -118,17 +129,15 @@ def main():
     
     for doc_id, d in docs.items():
         mat, K = d["mat"], d["K"]
+        # win/loss from the score DIFFERENCE (not ratio), enforced ANTISYMMETRIC
+        # (mat[j][i] = -mat[i][j]) so coherency_eval.py's directed symmetrization
+        # is a harmless no-op and yields the correct metric verdicts.
         for i in range(K):
-            for j in range(K):
-                if i==j:
-                    continue
-                ratio = d["scores"][i]/d["scores"][j]
-                if ratio > 1.0+args.thrs:
-                    mat[i][j] = 1
-                elif ratio < 1.0-args.thrs:
-                    mat[i][j] = -1
-                else:
-                    mat[i][j] = 0
+            for j in range(i + 1, K):
+                diff = d["scores"][i] - d["scores"][j]
+                v = 1 if diff > args.thrs else (-1 if diff < -args.thrs else 0)
+                mat[i][j] = v
+                mat[j][i] = -v
                     
 
     with out_path.open("w", encoding="utf-8") as fout:
@@ -143,9 +152,10 @@ def main():
                 "doc_id": doc_id,
                 "tgt_lang": d["tgt"],
                 "k": K,
-                "winloss": mat,           # winloss[i][j]: i shown first vs j second
+                "winloss": mat,           # antisymmetric: winloss[j][i] = -winloss[i][j]
                 "score": score,           # both-direction net score per hypo
                 "best": best,
+                "position_disagreements": 0,  # metric has no position bias
                 "source_doc": d["source"],
                 "hypos": d["hypos"],
                 "scores": d["scores"]
