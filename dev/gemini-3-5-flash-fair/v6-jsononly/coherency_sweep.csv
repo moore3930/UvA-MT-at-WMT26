@@ -1,0 +1,5 @@
+pair,n_docs,threshold,agreement_3way,human_tie_rate,llm_tie_rate,dir_strict,dir_both,kendall_mean,spearman_mean,best1,best2,position_disagreement_rate,position_a_win_rate,position_b_win_rate,position_tie_rate
+en-ru,200,0,0.5964,0.02,0.1064,0.6042,0.6745,0.3274,0.4156,0.36,0.52,0.1027,0.4977,0.4954,0.0069
+en-ru,200,5,0.5407,0.193,0.1064,0.6369,0.7066,0.3274,0.4156,0.36,0.52,0.1027,0.4977,0.4954,0.0069
+en-ru,200,10,0.477,0.3466,0.1064,0.6617,0.7308,0.3274,0.4156,0.36,0.52,0.1027,0.4977,0.4954,0.0069
+en-ru,200,25,0.3202,0.675,0.1064,0.7368,0.8001,0.3274,0.4156,0.36,0.52,0.1027,0.4977,0.4954,0.0069
