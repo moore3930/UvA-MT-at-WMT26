@@ -1,0 +1,5 @@
+pair	n_docs	threshold	agreement_3way	human_tie_rate	llm_tie_rate	dir_strict	dir_both	kendall_mean	spearman_mean	best1	best2	position_disagreement_rate	position_a_win_rate	position_b_win_rate	position_tie_rate
+en-zh	198	0	0.544	0.0193	0.1284	0.5531	0.6352	0.2367	0.3092	0.1768	0.3283	0.1257	0.544	0.4524	0.0036
+en-zh	198	5	0.4767	0.2545	0.1284	0.5899	0.6724	0.2367	0.3092	0.1768	0.3283	0.1257	0.544	0.4524	0.0036
+en-zh	198	10	0.4003	0.452	0.1284	0.6139	0.6959	0.2367	0.3092	0.1768	0.3283	0.1257	0.544	0.4524	0.0036
+en-zh	198	25	0.2477	0.7854	0.1284	0.658	0.7331	0.2367	0.3092	0.1768	0.3283	0.1257	0.544	0.4524	0.0036

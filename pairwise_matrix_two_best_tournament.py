@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from sequential_scaling import LLMCache, lang_name
-from util.openai_client import build_client
+from util.llm_client import build_client
 from util.contrastive_judge import (
     DEFAULT_RUBRIC,
     instruction_for_record,

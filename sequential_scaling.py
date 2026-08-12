@@ -42,7 +42,7 @@ from results.special_output_markers import OUTPUT_BLOCKED, OUTPUT_ERROR
 
 # LLM client/call live in util/openai_client.py (OpenAI GPT). The judge scripts
 # import the same two helpers, so the whole pipeline talks to OpenAI.
-from util.openai_client import (
+from util.llm_client import (
     ContentFilteredError,
     build_client,
     call_openai_with_usage,
