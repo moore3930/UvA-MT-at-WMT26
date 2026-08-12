@@ -252,3 +252,6 @@ final_submission/out/**
 
 # ---- results/: only files >50MB kept local-only (GitHub warns above this) ----
 /results/gemini-3.5-flash/.gpt_cache.jsonl
+
+# ---- human annotation is a local-only results folder ----
+results/human_annotation/

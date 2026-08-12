@@ -1,9 +1,0 @@
-{
-  "oauth_client_secrets_path": "/home/stroshi/.google_api_user/client_secret.json",
-  "oauth_token_path": "/home/stroshi/.google_api_user/token.json",
-  "drive_root_folder_id": "root",
-  "remote_disk_root": "UvA-MT-at-WMT26",
-  "folder_prefix": "human_annotation",
-  "if_exists": "skip",
-  "open_browser": true
-}
