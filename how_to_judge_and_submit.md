@@ -23,6 +23,17 @@ EXPERIMENT_TAG=rubric-v5-structured
 JUDGE_STRUCTURED_OUTPUT=1
 ```
 
+## `gpt-final` Provenance
+
+`results/gpt-final/` is not one single GPT model. It is a per-language merged GPT set:
+
+- from `results/gpt-5.5/`:
+  - `arz`, `arz_Arab`
+- from `results/gpt-5.4/`:
+  - `bel_Cyrl`, `ces_Latn`, `deu_Latn`, `ekk_Latn`, `hye_Armn`, `ind_Latn`, `isl_Latn`, `jpn_Jpan`, `kaz_Cyrl`, `kor_Hang`, `lij_Latn`, `lld_Latn`, `rus_Cyrl`, `sme_Latn`, `tha_Thai`, `ukr_Cyrl`, `zho_Hans`, `zho_Hant_TW`
+- from `results/gpt-4o-mini/`:
+  - `cs`, `cs_CZ`, `de_AT`, `de_CH`, `de_DE`, `de_IT`, `et_EE`, `is`, `ko_KR`, `ru`, `ru_RU`, `vie_Latn`, `zh_CN`
+
 ## 1. Judge `results/gpt-final`
 
 This reads samples from `results/gpt-final` and writes structured judge outputs under:

@@ -1,0 +1,74 @@
+{
+  "context_win": 1,
+  "documents_blocked_this_run": 0,
+  "documents_error_this_run": 0,
+  "documents_failed_this_run": 0,
+  "documents_written_this_run": 5,
+  "input_path": "/home/stroshi/UvA-MT-at-WMT26/.local_scripts/gemini/generation/debug_inputs.jsonl",
+  "k": 2,
+  "loaded_failure_records": 0,
+  "loaded_usage_records": 16,
+  "model": "gemini-3.5-flash",
+  "per_language": {
+    "ar_AR": {
+      "cache_hits": 0,
+      "calls": 2,
+      "completion_tokens": 50,
+      "documents_written_this_run": 0,
+      "estimated_cost_usd": 0.000783,
+      "inferred_thinking_tokens": 0,
+      "prompt_tokens": 222,
+      "total_tokens": 272
+    },
+    "ru": {
+      "cache_hits": 0,
+      "calls": 4,
+      "completion_tokens": 1012,
+      "documents_written_this_run": 2,
+      "estimated_cost_usd": 0.012207,
+      "inferred_thinking_tokens": 0,
+      "prompt_tokens": 2066,
+      "total_tokens": 3078
+    },
+    "ru_RU": {
+      "cache_hits": 0,
+      "calls": 18,
+      "completion_tokens": 401,
+      "documents_written_this_run": 3,
+      "estimated_cost_usd": 0.0066525,
+      "inferred_thinking_tokens": 0,
+      "prompt_tokens": 2029,
+      "total_tokens": 2430
+    },
+    "zh_CN": {
+      "cache_hits": 0,
+      "calls": 2,
+      "completion_tokens": 22,
+      "documents_written_this_run": 0,
+      "estimated_cost_usd": 0.0005145,
+      "inferred_thinking_tokens": 0,
+      "prompt_tokens": 211,
+      "total_tokens": 233
+    }
+  },
+  "pricing_profile": "gemini-3.5-flash",
+  "pricing_rates": {
+    "input_per_million_usd": 1.5,
+    "output_per_million_usd": 9.0
+  },
+  "reasoning_effort": "minimal",
+  "results_dir": "/home/stroshi/UvA-MT-at-WMT26/results/debug/gemini-3.5-flash",
+  "resume_skipped_this_run": 0,
+  "temperature": 1.0,
+  "totals": {
+    "cache_hits": 0,
+    "calls": 26,
+    "completion_tokens": 1485,
+    "estimated_cost_usd": 0.020157,
+    "inferred_thinking_tokens": 0,
+    "prompt_tokens": 4528,
+    "total_tokens": 6013
+  },
+  "usage_log_path": "/home/stroshi/UvA-MT-at-WMT26/results/debug/gemini-3.5-flash/usage/debug_inputs.usage.jsonl",
+  "write_order": "input"
+}

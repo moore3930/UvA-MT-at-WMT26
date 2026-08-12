@@ -1,0 +1,8 @@
+{
+  "source_manifest_path": "/home/stroshi/UvA-MT-at-WMT26/results/human_annotation/upload_manifests/20260630_best_of_8_judge_selected/google_upload_manifest_en-ar_AR_best_of_8_judge_selected.json",
+  "output_root": "/home/stroshi/UvA-MT-at-WMT26/results/human_annotation/labelled_snapshot/20260630_best_of_8_judge_selected/en-ar_AR",
+  "downloaded_count": 1,
+  "files": [
+    "gemini-3.5-flash_vs_gpt-5.5/best_of_8_judge_selected_human.csv"
+  ]
+}

@@ -232,3 +232,23 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---- local scratch: scripts, checks, experiment scratch ----
+.local_scripts/
+.final_checks/
+sergey_util/
+paper/
+slurm-*.out
+
+# ---- large local-only data files ----
+wmt26_genmt_blindset_en-ru.jsonl
+wmt26_genmt_required_only.jsonl
+
+# ---- final_submission run outputs: keep the markdown reports only ----
+final_submission/out/**
+!final_submission/out/**/
+!final_submission/out/**/*.md
+
+
+# ---- results/: only files >50MB kept local-only (GitHub warns above this) ----
+/results/gemini-3.5-flash/.gpt_cache.jsonl

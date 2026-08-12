@@ -1,0 +1,45 @@
+{
+  "model": "gemini-2.5-flash",
+  "input_dir": "/home/stroshi/UvA-MT-at-WMT26/results/merged/gemini-3.5-flash__gpt-final",
+  "prompt_mode": "json-only",
+  "result_file_prefix": "",
+  "max_hypos": 16,
+  "assumptions": {
+    "prompt_chars_per_token": 3.65,
+    "visible_output_tokens_per_call": 20.0,
+    "thinking_tokens_per_call": 0.0
+  },
+  "per_file": [
+    {
+      "file": "arz.jsonl",
+      "docs": 150,
+      "hypotheses_per_doc": 16,
+      "ordered_pairs_to_judge": 34448,
+      "identical_pairs_auto_tied": 1552,
+      "prompt_chars_total": 51828738,
+      "avg_prompt_chars_per_call": 1504.5499883882953,
+      "prompt_tokens_est": 14199654.246575342,
+      "visible_output_tokens_est": 688960.0,
+      "thinking_tokens_est": 0.0,
+      "billed_output_tokens_est": 688960.0,
+      "input_cost_usd": 4.259896273972602,
+      "visible_output_cost_usd": 1.7224,
+      "thinking_cost_usd": 0.0,
+      "total_cost_usd": 5.982296273972603
+    }
+  ],
+  "totals": {
+    "docs": 150,
+    "ordered_pairs_to_judge": 34448,
+    "identical_pairs_auto_tied": 1552,
+    "prompt_chars_total": 51828738,
+    "prompt_tokens_est": 14199654.246575342,
+    "visible_output_tokens_est": 688960.0,
+    "thinking_tokens_est": 0.0,
+    "billed_output_tokens_est": 688960.0,
+    "input_cost_usd": 4.259896273972602,
+    "visible_output_cost_usd": 1.7224,
+    "thinking_cost_usd": 0.0,
+    "total_cost_usd": 5.982296273972603
+  }
+}

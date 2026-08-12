@@ -1,0 +1,28 @@
+Pairwise Translation Annotation Instructions
+
+You will compare two translations of the same English source segment.
+
+Columns
+- `src`: the English source text
+- `hypo_A`: translation A
+- `hypo_B`: translation B
+- `label`: your choice
+
+Your task
+1. Read the source and compare `hypo_A` with `hypo_B`.
+2. Fill `label` with exactly one of:
+   - `A`
+   - `B`
+   - `tie`
+   - `unclear`
+
+Guidelines
+- Use `A` if translation A is better overall.
+- Use `B` if translation B is better overall.
+- Use `tie` if they are effectively equally good.
+- Use `unclear` if you cannot judge confidently.
+
+Notes
+- The order of A and B is randomized.
+- Judge only the text shown in the row.
+- Do not use external tools or references.

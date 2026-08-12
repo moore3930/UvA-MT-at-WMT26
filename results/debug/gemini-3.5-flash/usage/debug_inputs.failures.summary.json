@@ -1,0 +1,16 @@
+{
+  "documents_blocked_this_run": 0,
+  "documents_error_this_run": 0,
+  "documents_failed_this_run": 0,
+  "documents_written_this_run": 5,
+  "failure_log_path": "/home/stroshi/UvA-MT-at-WMT26/results/debug/gemini-3.5-flash/usage/debug_inputs.failures.jsonl",
+  "input_path": "/home/stroshi/UvA-MT-at-WMT26/.local_scripts/gemini/generation/debug_inputs.jsonl",
+  "latest_failures": [],
+  "loaded_failure_records": 0,
+  "model": "gemini-3.5-flash",
+  "per_language": {},
+  "totals": {
+    "blocked": 0,
+    "error": 0
+  }
+}

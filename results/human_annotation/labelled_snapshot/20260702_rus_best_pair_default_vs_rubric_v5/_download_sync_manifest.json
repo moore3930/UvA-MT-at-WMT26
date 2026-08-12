@@ -1,0 +1,8 @@
+{
+  "source_manifest_path": "results/human_annotation/upload_manifests/20260702_rus_best_pair_default_vs_rubric_v5/google_upload_manifest_en-ru_RU_best_pair_default_vs_rubric_v5.json",
+  "output_root": "results/human_annotation/labelled_snapshot/20260702_rus_best_pair_default_vs_rubric_v5",
+  "downloaded_count": 1,
+  "files": [
+    "en-ru_RU/default_vs_rubric_v5/best_pair_disagreement_default_vs_rubric_v5_human.csv"
+  ]
+}

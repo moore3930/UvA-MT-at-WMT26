@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="480" viewBox="0 0 920 480">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="70" y="28" font-size="20" fill="#1a202c" font-family="sans-serif">Human annotation decisive win rates</text>
+<text x="70" y="44" font-size="12" fill="#1a202c" font-family="sans-serif">gemini-3.5-flash vs gpt-5.5</text>
+<text x="70" y="60" font-size="11" fill="#1a202c" font-family="sans-serif">Error bars show +/- 1 standard error of the mean.</text>
+<line x1="70" y1="390" x2="890" y2="390" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="70" y1="72" x2="70" y2="390" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="70" y1="390.0" x2="890" y2="390.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="none"/>
+<text x="62" y="394.0" font-size="11" fill="#1a202c" font-family="sans-serif" text-anchor="end">0%</text>
+<line x1="70" y1="310.5" x2="890" y2="310.5" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="62" y="314.5" font-size="11" fill="#1a202c" font-family="sans-serif" text-anchor="end">25%</text>
+<line x1="70" y1="231.0" x2="890" y2="231.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="62" y="235.0" font-size="11" fill="#1a202c" font-family="sans-serif" text-anchor="end">50%</text>
+<line x1="70" y1="151.5" x2="890" y2="151.5" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="62" y="155.5" font-size="11" fill="#1a202c" font-family="sans-serif" text-anchor="end">75%</text>
+<line x1="70" y1="72.0" x2="890" y2="72.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="none"/>
+<text x="62" y="76.0" font-size="11" fill="#1a202c" font-family="sans-serif" text-anchor="end">100%</text>
+<line x1="70" y1="231.0" x2="890" y2="231.0" stroke="#4a5568" stroke-width="1.5" stroke-dasharray="6 4"/>
+<rect x="132.5" y="204.5" width="36.0" height="185.5" fill="#2f855a"><title>en-ar_AR: gemini-3.5-flash decisive win rate 58% +/- 5%</title></rect>
+<rect x="176.5" y="257.5" width="36.0" height="132.50000000000003" fill="#b7791f"><title>en-ar_AR: gpt-5.5 decisive win rate 42% +/- 5%</title></rect>
+<line x1="150.5" y1="221.6056764457494" x2="150.5" y2="187.39432355425058" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="144.5" y1="221.6056764457494" x2="156.5" y2="221.6056764457494" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="144.5" y1="187.39432355425058" x2="156.5" y2="187.39432355425058" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="194.5" y1="274.6056764457494" x2="194.5" y2="240.39432355425055" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="188.5" y1="274.6056764457494" x2="200.5" y2="274.6056764457494" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="188.5" y1="240.39432355425055" x2="200.5" y2="240.39432355425055" stroke="#2d3748" stroke-width="1.5"/>
+<text x="150.5" y="198.5" font-size="11" fill="#1a202c" font-family="sans-serif" text-anchor="middle">58</text>
+<text x="194.5" y="251.5" font-size="11" fill="#1a202c" font-family="sans-serif" text-anchor="middle">42</text>
+<text x="172.5" y="435" font-size="12" fill="#1a202c" font-family="sans-serif" text-anchor="middle">en-ar_AR</text>
+<rect x="337.5" y="249.0681818181818" width="36.0" height="140.9318181818182" fill="#2f855a"><title>en-ru_RU: gemini-3.5-flash decisive win rate 44% +/- 5%</title></rect>
+<rect x="381.5" y="212.9318181818182" width="36.0" height="177.0681818181818" fill="#b7791f"><title>en-ru_RU: gpt-5.5 decisive win rate 56% +/- 5%</title></rect>
+<line x1="355.5" y1="265.907847115879" x2="355.5" y2="232.2285165204846" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="349.5" y1="265.907847115879" x2="361.5" y2="265.907847115879" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="349.5" y1="232.2285165204846" x2="361.5" y2="232.2285165204846" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="399.5" y1="229.77148347951538" x2="399.5" y2="196.09215288412096" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="393.5" y1="229.77148347951538" x2="405.5" y2="229.77148347951538" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="393.5" y1="196.09215288412096" x2="405.5" y2="196.09215288412096" stroke="#2d3748" stroke-width="1.5"/>
+<text x="355.5" y="243.0681818181818" font-size="11" fill="#1a202c" font-family="sans-serif" text-anchor="middle">44</text>
+<text x="399.5" y="206.9318181818182" font-size="11" fill="#1a202c" font-family="sans-serif" text-anchor="middle">56</text>
+<text x="377.5" y="435" font-size="12" fill="#1a202c" font-family="sans-serif" text-anchor="middle">en-ru_RU</text>
+<rect x="542.5" y="178.00000000000006" width="36.0" height="211.99999999999994" fill="#2f855a"><title>en-zh_CN: gemini-3.5-flash decisive win rate 67% +/- 16%</title></rect>
+<rect x="586.5" y="284.0" width="36.0" height="105.99999999999997" fill="#b7791f"><title>en-zh_CN: gpt-5.5 decisive win rate 33% +/- 16%</title></rect>
+<line x1="560.5" y1="227.96887920384938" x2="560.5" y2="128.03112079615067" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="554.5" y1="227.96887920384938" x2="566.5" y2="227.96887920384938" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="554.5" y1="128.03112079615067" x2="566.5" y2="128.03112079615067" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="604.5" y1="333.9688792038494" x2="604.5" y2="234.03112079615067" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="598.5" y1="333.9688792038494" x2="610.5" y2="333.9688792038494" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="598.5" y1="234.03112079615067" x2="610.5" y2="234.03112079615067" stroke="#2d3748" stroke-width="1.5"/>
+<text x="560.5" y="172.00000000000006" font-size="11" fill="#1a202c" font-family="sans-serif" text-anchor="middle">67</text>
+<text x="604.5" y="278.0" font-size="11" fill="#1a202c" font-family="sans-serif" text-anchor="middle">33</text>
+<text x="582.5" y="435" font-size="12" fill="#1a202c" font-family="sans-serif" text-anchor="middle">en-zh_CN</text>
+<rect x="747.5" y="224.85082872928177" width="36.0" height="165.14917127071823" fill="#2f855a"><title>overall: gemini-3.5-flash decisive win rate 52% +/- 4%</title></rect>
+<rect x="791.5" y="237.14917127071823" width="36.0" height="152.85082872928177" fill="#b7791f"><title>overall: gpt-5.5 decisive win rate 48% +/- 4%</title></rect>
+<line x1="765.5" y1="236.66036408737023" x2="765.5" y2="213.04129337119332" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="759.5" y1="236.66036408737023" x2="771.5" y2="236.66036408737023" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="759.5" y1="213.04129337119332" x2="771.5" y2="213.04129337119332" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="809.5" y1="248.95870662880668" x2="809.5" y2="225.33963591262977" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="803.5" y1="248.95870662880668" x2="815.5" y2="248.95870662880668" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="803.5" y1="225.33963591262977" x2="815.5" y2="225.33963591262977" stroke="#2d3748" stroke-width="1.5"/>
+<text x="765.5" y="218.85082872928177" font-size="11" fill="#1a202c" font-family="sans-serif" text-anchor="middle">52</text>
+<text x="809.5" y="231.14917127071823" font-size="11" fill="#1a202c" font-family="sans-serif" text-anchor="middle">48</text>
+<text x="787.5" y="435" font-size="12" fill="#1a202c" font-family="sans-serif" text-anchor="middle">overall</text>
+<rect x="70" y="449" width="14" height="14" fill="#2f855a"/>
+<text x="90" y="460" font-size="12" fill="#1a202c" font-family="sans-serif">gemini-3.5-flash</text>
+<rect x="280" y="449" width="14" height="14" fill="#b7791f"/>
+<text x="300" y="460" font-size="12" fill="#1a202c" font-family="sans-serif">gpt-5.5</text>
+</svg>
